@@ -157,5 +157,47 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy notification
-        run: echo "Deploy to VPS would happen here"
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            APP_DIR="/opt/sales-funnel"
+
+            # Clone or pull
+            if [ -d "$APP_DIR" ]; then
+              cd "$APP_DIR"
+              git pull origin main
+            else
+              git clone https://github.com/Alley1818/sales-funnel.git "$APP_DIR"
+              cd "$APP_DIR"
+            fi
+
+            # Create .env files from examples if missing
+            [ ! -f .env ] && cp .env.example .env
+            [ ! -f .env.pipecat ] && cp .env.pipecat.example .env.pipecat
+
+            # Python venv
+            python3 -m venv venv 2>/dev/null || true
+            source venv/bin/activate
+            pip install -q flask requests openpyxl httpx python-dotenv gunicorn
+
+            # Docker containers
+            docker compose pull 2>/dev/null || true
+            docker compose build
+            docker compose up -d
+
+            # Restart Flask via systemd or direct
+            if systemctl is-active --quiet sales-funnel 2>/dev/null; then
+              systemctl restart sales-funnel
+            else
+              pkill -f "python.*main.py" 2>/dev/null || true
+              sleep 1
+              cd "$APP_DIR"
+              nohup venv/bin/python3 -c "from main import app; app.run(host='0.0.0.0', port=5050)" > /var/log/sales-funnel.log 2>&1 &
+            fi
+
+            echo "Deploy complete!"
