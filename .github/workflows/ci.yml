@@ -46,11 +46,11 @@ jobs:
       - name: Test DB initialization
         run: |
           python -c "
-          from db_extended import init_advanced_tables
+          from db_extended import init_extended_tables
           from leads_db import init_db
           from funnel_features import seed_default_templates
           init_db()
-          init_advanced_tables()
+          init_extended_tables()
           seed_default_templates()
           print('DB init OK')
           "
