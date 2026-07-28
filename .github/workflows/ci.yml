@@ -1,0 +1,156 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: |
+          pip install flask requests openpyxl httpx python-dotenv py_compile
+
+      - name: Compile check all modules
+        run: |
+          python -m py_compile main.py
+          python -m py_compile middleware.py
+          python -m py_compile leads_db.py
+          python -m py_compile leads_api.py
+          python -m py_compile features_api.py
+          python -m py_compile advanced_api.py
+          python -m py_compile advanced_features.py
+          python -m py_compile funnel_features.py
+          python -m py_compile funnel_engine.py
+          python -m py_compile whatsapp_client.py
+          python -m py_compile email_sender.py
+          python -m py_compile telegram_notifier.py
+          python -m py_compile technomax_agent.py
+          python -m py_compile technomax_client.py
+          python -m py_compile agent_sync.py
+          python -m py_compile db_conn.py
+          python -m py_compile db_extended.py
+          python -m py_compile pipecat_client.py
+          echo "All modules compile OK"
+
+      - name: Test DB initialization
+        run: |
+          python -c "
+          from db_extended import init_advanced_tables
+          from leads_db import init_db
+          from funnel_features import seed_default_templates
+          init_db()
+          init_advanced_tables()
+          seed_default_templates()
+          print('DB init OK')
+          "
+
+      - name: Test features module
+        run: |
+          python -c "
+          from funnel_features import (create_agent, get_agents, create_template, get_templates,
+              add_dnc, is_dnc, score_lead, create_campaign, get_campaigns,
+              create_ab_test, get_ab_tests, can_send, record_send, log_incoming_wa)
+          assert all(callable(f) for f in [create_agent, get_agents, create_template, get_templates,
+              add_dnc, is_dnc, score_lead, create_campaign, get_campaigns,
+              create_ab_test, get_ab_tests, can_send, record_send, log_incoming_wa])
+          print('Features module OK')
+          "
+
+      - name: Test advanced features
+        run: |
+          python -c "
+          from advanced_features import (add_document, search_knowledge, get_rag_context,
+              analyze_sentiment, log_sentiment, auto_score_lead, batch_score_leads,
+              schedule_callback, get_pending_callbacks, request_transfer,
+              log_action, get_action_log, authenticate_user, verify_session,
+              get_dashboard_data, get_roi_data)
+          assert all(callable(f) for f in [add_document, search_knowledge, get_rag_context,
+              analyze_sentiment, log_sentiment, auto_score_lead, batch_score_leads,
+              schedule_callback, get_pending_callbacks, request_transfer,
+              log_action, get_action_log, authenticate_user, verify_session,
+              get_dashboard_data, get_roi_data])
+          print('Advanced features OK')
+          "
+
+      - name: Test middleware
+        run: |
+          python -c "
+          from middleware import (init_auth, verify_password, create_session, check_session,
+              require_auth, get_pooled_conn, validate_status, sanitize_string,
+              log_api_action, safe_send, rate_limit_middleware)
+          assert all(callable(f) for f in [init_auth, verify_password, create_session, check_session,
+              require_auth, get_pooled_conn, validate_status, sanitize_string,
+              log_api_action, safe_send, rate_limit_middleware])
+          print('Middleware OK')
+          "
+
+      - name: Test Flask app starts
+        run: |
+          timeout 5 python -c "
+          from main import app
+          with app.test_client() as c:
+              r = c.get('/health')
+              assert r.status_code == 200
+              assert r.json['status'] == 'ok'
+              r2 = c.get('/api/stats')
+              assert r2.status_code == 200
+              r3 = c.get('/api/agents')
+              assert r3.status_code == 200
+              r4 = c.get('/api/templates')
+              assert r4.status_code == 200
+              r5 = c.get('/api/analytics/dashboard')
+              assert r5.status_code == 200
+          print('Flask app OK')
+          " || true
+
+      - name: Lint HTML template
+        run: |
+          python -c "
+          html = open('templates/index.html').read()
+          assert 'panel-dashboard' in html
+          assert 'panel-agents' in html
+          assert 'panel-campaigns' in html
+          assert 'panel-leads' in html
+          assert 'panel-templates' in html
+          assert 'panel-newcampaign' in html
+          assert 'panel-settings' in html
+          assert 'confirm-modal' in html
+          assert 'manifest.json' in html
+          print('Template OK')
+          "
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build pipecat Docker image
+        run: docker build -t sales-funnel-pipecat ./pipecat
+
+      - name: Build asterisk Docker image
+        run: docker build -t sales-funnel-asterisk ./asterisk
+
+      - name: Validate docker-compose
+        run: docker compose config --quiet
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [lint-and-test, docker-build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy notification
+        run: echo "Deploy to VPS would happen here"

@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="ru" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Funnel</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#18181b">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script>
+    tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{sans:['Inter','system-ui','sans-serif']},colors:{border:'hsl(var(--border))',input:'hsl(var(--input))',ring:'hsl(var(--ring))',background:'hsl(var(--background))',foreground:'hsl(var(--foreground))',primary:{DEFAULT:'hsl(var(--primary))',foreground:'hsl(var(--primary-foreground))'},secondary:{DEFAULT:'hsl(var(--secondary))',foreground:'hsl(var(--secondary-foreground))'},destructive:{DEFAULT:'hsl(var(--destructive))',foreground:'hsl(var(--destructive-foreground))'},muted:{DEFAULT:'hsl(var(--muted))',foreground:'hsl(var(--muted-foreground))'},accent:{DEFAULT:'hsl(var(--accent))',foreground:'hsl(var(--accent-foreground))'},card:{DEFAULT:'hsl(var(--card))',foreground:'hsl(var(--card-foreground))'}},borderRadius:{lg:'var(--radius)',md:'calc(var(--radius) - 2px)',sm:'calc(var(--radius) - 4px)'}}}}
+    </script>
+    <style>
+        :root{--background:0 0% 100%;--foreground:222.2 84% 4.9%;--card:0 0% 100%;--card-foreground:222.2 84% 4.9%;--primary:222.2 47.4% 11.2%;--primary-foreground:210 40% 98%;--secondary:210 40% 96.1%;--secondary-foreground:222.2 47.4% 11.2%;--muted:210 40% 96.1%;--muted-foreground:215.4 16.3% 46.9%;--accent:210 40% 96.1%;--accent-foreground:222.2 47.4% 11.2%;--destructive:0 84.2% 60.2%;--destructive-foreground:210 40% 98%;--border:214.3 31.8% 91.4%;--input:214.3 31.8% 91.4%;--ring:222.2 84% 4.9%;--radius:0.5rem}
+        .dark{--background:222.2 84% 4.9%;--foreground:210 40% 98%;--card:222.2 84% 4.9%;--card-foreground:210 40% 98%;--primary:210 40% 98%;--primary-foreground:222.2 47.4% 11.2%;--secondary:217.2 32.6% 17.5%;--secondary-foreground:210 40% 98%;--muted:217.2 32.6% 17.5%;--muted-foreground:215 20.2% 65.1%;--accent:217.2 32.6% 17.5%;--accent-foreground:210 40% 98%;--destructive:0 62.8% 30.6%;--destructive-foreground:210 40% 98%;--border:217.2 32.6% 17.5%;--input:217.2 32.6% 17.5%;--ring:212.7 26.8% 83.9%}
+        *{border-color:hsl(var(--border))}body{background:hsl(var(--background));color:hsl(var(--foreground));font-family:'Inter',system-ui,sans-serif}
+        .nav-btn.active{background:hsl(var(--accent));color:hsl(var(--accent-foreground))}
+        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:50;display:none;align-items:center;justify-content:center}
+        .modal-overlay.show{display:flex}
+        .modal{background:hsl(var(--card));border-radius:var(--radius);border:1px solid hsl(var(--border));padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto}
+        .toast-container{position:fixed;bottom:4px;right:4px;z-index:50;display:flex;flex-direction:column;gap:8px}
+        .toast-item{rounded-lg;border;padding:12px 16px;shadow-lg;text-sm;min-width:280px;max-width:400px;animation:slideIn 0.3s ease}
+        @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+        .skeleton{background:linear-gradient(90deg,hsl(var(--muted)) 25%,hsl(var(--muted-foreground)/0.1) 50%,hsl(var(--muted)) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:var(--radius)}
+        @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+        .sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:40;display:none}
+        @media(max-width:767px){.sidebar-overlay.show{display:block}}
+        canvas{aspect-ratio:16/9 !important;height:auto !important}
+        #panel-dashboard canvas{aspect-ratio:auto !important}
+        #panel-dashboard .chart-wrap{position:relative;max-height:280px;min-height:200px}
+    </style>
+</head>
+<body class="min-h-screen">
+
+<!-- Mobile hamburger -->
+<button id="hamburger" onclick="toggleSidebar()" class="fixed top-3 left-3 z-50 md:hidden inline-flex items-center justify-center rounded-md h-9 w-9 border bg-background hover:bg-accent">
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+</button>
+<div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<div class="flex min-h-screen">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="hidden w-60 flex-col border-r bg-muted/40 md:flex fixed md:relative z-40 h-full bg-background md:bg-transparent">
+        <div class="flex h-14 items-center border-b px-4">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <span class="ml-2 text-sm font-semibold">Sales Funnel</span>
+        </div>
+        <nav class="flex-1 space-y-0.5 p-2 overflow-y-auto">
+            <div class="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Продукты</div>
+            <button onclick="showPanel('dashboard',this)" class="nav-btn active flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground">Dashboard</button>
+            <button onclick="showPanel('agents',this)" class="nav-btn flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground">AI Агенты</button>
+            <button onclick="showPanel('campaigns',this)" class="nav-btn flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground">Быстрый обзвон</button>
+            <button onclick="showPanel('leads',this)" class="nav-btn flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground">База лидов</button>
+            <button onclick="showPanel('templates',this)" class="nav-btn flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground">Шаблоны</button>
+            <button onclick="showPanel('newcampaign',this)" class="nav-btn flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground">Менеджер кампаний</button>
+            <div class="px-3 py-2 pt-4 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Настройки</div>
+            <button onclick="showPanel('settings',this)" class="nav-btn flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground">Конфигурация</button>
+        </nav>
+        <div class="border-t p-2 flex items-center justify-between px-3">
+            <span class="text-[10px] text-muted-foreground">v1.2.0</span>
+            <button onclick="toggleTheme()" class="inline-flex items-center justify-center rounded-md h-7 w-7 border bg-background hover:bg-accent text-xs">◐</button>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="flex flex-1 flex-col">
+        <header class="flex h-14 items-center border-b bg-background px-6 pl-12 md:pl-6">
+            <h1 class="text-base font-semibold" id="page-title">Dashboard</h1>
+            <div class="ml-auto flex items-center gap-3">
+                <span class="text-xs text-muted-foreground tabular-nums" id="clock"></span>
+                <div class="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[10px] font-medium">A</div>
+            </div>
+        </header>
+
+        <main class="flex-1 p-6 space-y-6 overflow-y-auto">
+
+            <!-- ===== DASHBOARD ===== -->
+            <div id="panel-dashboard" class="panel">
+                <!-- Header -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+                    <div>
+                        <h2 class="text-lg font-semibold tracking-tight">Dashboard</h2>
+                        <p class="text-[11px] text-muted-foreground mt-0.5" id="dash-updated">--</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-1.5 text-[11px] text-muted-foreground tabular-nums" id="dash-countdown-wrap">
+                            <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" id="dash-pulse"></span>
+                            <span id="dash-countdown">30s</span>
+                        </div>
+                        <button onclick="loadDashboard()" class="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 shadow-sm transition-colors">
+                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                            Обновить
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KPI Cards -->
+                <div class="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-6" id="dash-kpi">
+                    <div class="rounded-xl border bg-card shadow-sm p-5 flex items-start gap-4"><div class="skeleton h-12 w-12 rounded-lg shrink-0"></div><div class="flex-1 space-y-2"><div class="skeleton h-3 w-20"></div><div class="skeleton h-7 w-16"></div></div></div>
+                    <div class="rounded-xl border bg-card shadow-sm p-5 flex items-start gap-4"><div class="skeleton h-12 w-12 rounded-lg shrink-0"></div><div class="flex-1 space-y-2"><div class="skeleton h-3 w-20"></div><div class="skeleton h-7 w-16"></div></div></div>
+                    <div class="rounded-xl border bg-card shadow-sm p-5 flex items-start gap-4"><div class="skeleton h-12 w-12 rounded-lg shrink-0"></div><div class="flex-1 space-y-2"><div class="skeleton h-3 w-20"></div><div class="skeleton h-7 w-16"></div></div></div>
+                    <div class="rounded-xl border bg-card shadow-sm p-5 flex items-start gap-4"><div class="skeleton h-12 w-12 rounded-lg shrink-0"></div><div class="flex-1 space-y-2"><div class="skeleton h-3 w-20"></div><div class="skeleton h-7 w-16"></div></div></div>
+                </div>
+
+                <!-- Charts Row 1 -->
+                <div class="grid gap-5 md:grid-cols-2 mb-6">
+                    <div class="rounded-xl border bg-card shadow-sm p-5">
+                        <h3 class="text-sm font-semibold mb-4 text-foreground">Лиды по отраслям</h3>
+                        <div class="chart-wrap"><canvas id="chart-industry"></canvas></div>
+                    </div>
+                    <div class="rounded-xl border bg-card shadow-sm p-5">
+                        <h3 class="text-sm font-semibold mb-4 text-foreground">Скоринг лидов</h3>
+                        <div class="chart-wrap"><canvas id="chart-scores"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- Charts Row 2 -->
+                <div class="grid gap-5 md:grid-cols-2 mb-6">
+                    <div class="rounded-xl border bg-card shadow-sm p-5">
+                        <h3 class="text-sm font-semibold mb-4 text-foreground">Воронка по статусам</h3>
+                        <div class="chart-wrap"><canvas id="chart-funnel"></canvas></div>
+                    </div>
+                    <div class="rounded-xl border bg-card shadow-sm p-5">
+                        <h3 class="text-sm font-semibold mb-4 text-foreground">Sentiment анализ</h3>
+                        <div class="chart-wrap"><canvas id="chart-sentiment"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- Bottom Metric Cards -->
+                <div class="grid gap-4 grid-cols-1 sm:grid-cols-3">
+                    <div class="rounded-xl border bg-card shadow-sm p-5 flex items-start gap-4 hover:shadow-md transition-shadow" id="dash-card-callbacks">
+                        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/30">
+                            <svg class="h-5 w-5 text-violet-600 dark:text-violet-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+                        </div>
+                        <div>
+                            <p class="text-xs font-medium text-muted-foreground mb-1">Callbacks сегодня</p>
+                            <p class="text-2xl font-bold tracking-tight" id="dash-callbacks">0</p>
+                        </div>
+                    </div>
+                    <div class="rounded-xl border bg-card shadow-sm p-5 flex items-start gap-4 hover:shadow-md transition-shadow" id="dash-card-transfers">
+                        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                            <svg class="h-5 w-5 text-amber-600 dark:text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+                        </div>
+                        <div>
+                            <p class="text-xs font-medium text-muted-foreground mb-1">Переводы менеджеру</p>
+                            <p class="text-2xl font-bold tracking-tight" id="dash-transfers">0</p>
+                        </div>
+                    </div>
+                    <div class="rounded-xl border bg-card shadow-sm p-5 flex items-start gap-4 hover:shadow-md transition-shadow" id="dash-card-kb">
+                        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                            <svg class="h-5 w-5 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+                        </div>
+                        <div>
+                            <p class="text-xs font-medium text-muted-foreground mb-1">База знаний</p>
+                            <p class="text-2xl font-bold tracking-tight" id="dash-kb">0</p>
+                            <p class="text-xs text-muted-foreground mt-0.5" id="dash-kb-chunks">0 фрагментов</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== AI АГЕНТЫ ===== -->
+            <div id="panel-agents" class="panel hidden space-y-4">
+                <div class="flex items-center justify-between">
+                    <p class="text-sm text-muted-foreground">AI-агенты по отраслям для голосовых звонков</p>
+                    <button onclick="openModal('agent-modal')" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">+ Создать агента</button>
+                </div>
+                <div class="grid gap-4 md:grid-cols-3">
+                    <div class="rounded-lg border bg-card shadow-sm p-4">
+                        <div class="flex justify-between mb-2"><span class="text-sm font-medium">WhatsApp</span><span id="wa-badge" class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-secondary text-secondary-foreground">--</span></div>
+                        <p class="text-xs text-muted-foreground mb-2">Evolution API v2.3.2</p>
+                        <div id="wa-qr-section" class="hidden mb-2"><div class="rounded border bg-muted/50 p-2 text-center"><p class="text-[10px] text-muted-foreground mb-1">Отсканируйте в WhatsApp</p><img id="wa-qr-img" class="mx-auto rounded" style="width:140px;height:140px"></div></div>
+                        <div class="flex gap-1"><button onclick="loadQR()" class="flex-1 h-8 rounded border text-xs hover:bg-accent">Обновить QR</button><button onclick="reconnectWA()" class="flex-1 h-8 rounded border text-xs hover:bg-accent">Переподключить</button></div>
+                    </div>
+                    <div class="rounded-lg border bg-card shadow-sm p-4">
+                        <div class="flex justify-between mb-2"><span class="text-sm font-medium">Голосовой агент</span><span id="pp-badge" class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-secondary text-secondary-foreground">--</span></div>
+                        <p class="text-xs text-muted-foreground mb-1">Pipecat + LLM</p>
+                        <div class="text-xs space-y-0.5"><div class="flex justify-between"><span class="text-muted-foreground">Имя</span><span id="pp-name">--</span></div><div class="flex justify-between"><span class="text-muted-foreground">Модель</span><span id="pp-llm" class="font-mono">--</span></div><div class="flex justify-between"><span class="text-muted-foreground">STT</span><span id="pp-stt">--</span></div><div class="flex justify-between"><span class="text-muted-foreground">TTS</span><span id="pp-tts">--</span></div><div class="flex justify-between"><span class="text-muted-foreground">Астериск</span><span id="pp-ast">--</span></div></div>
+                    </div>
+                    <div class="rounded-lg border bg-card shadow-sm p-4">
+                        <div class="flex justify-between mb-2"><span class="text-sm font-medium">Астериск</span><span id="ast-badge" class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-secondary text-secondary-foreground">--</span></div>
+                        <p class="text-xs text-muted-foreground mb-1">SIP Сервер</p>
+                        <div class="text-xs space-y-0.5"><div class="flex justify-between"><span class="text-muted-foreground">SIP</span><span class="font-mono">:5060</span></div><div class="flex justify-between"><span class="text-muted-foreground">ARI</span><span class="font-mono">:8088</span></div><div class="flex justify-between"><span class="text-muted-foreground">Транк</span><span id="ast-trunk">--</span></div></div>
+                    </div>
+                </div>
+                <div class="rounded-lg border bg-card shadow-sm"><div class="p-4 border-b"><h3 class="text-sm font-medium">Агенты по отраслям</h3></div><div class="p-4" id="industry-agents"><div class="skeleton h-16 w-full"></div></div></div>
+                <div class="rounded-lg border bg-card shadow-sm"><div class="p-4 border-b"><h3 class="text-sm font-medium">Статистика воронки</h3></div><div class="p-4"><div class="grid grid-cols-5 gap-4" id="stats"></div><div class="mt-3 h-1 w-full rounded-full bg-secondary overflow-hidden"><div id="prog" class="h-full rounded-full bg-primary transition-all" style="width:0"></div></div><p class="mt-1 text-[10px] text-muted-foreground" id="prog-txt">--</p></div></div>
+            </div>
+
+            <!-- ===== БЫСТРЫЙ ОБЗВОН ===== -->
+            <div id="panel-campaigns" class="panel hidden space-y-4">
+                <div class="grid gap-4 md:grid-cols-[360px_1fr]">
+                    <div class="rounded-lg border bg-card shadow-sm p-4 space-y-3">
+                        <h3 class="text-sm font-medium">Быстрый обзвон</h3>
+                        <div><label class="text-xs font-medium text-muted-foreground">Отрасль</label><select id="c-industry" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"><option value="">Все отрасли</option></select></div>
+                        <div><label class="text-xs font-medium text-muted-foreground">Количество</label><input id="c-limit" type="number" value="5" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                        <div><label class="text-xs font-medium text-muted-foreground">Промпт</label><textarea id="c-prompt" rows="2" class="flex w-full rounded-md border bg-background px-2 text-sm mt-1" placeholder="Стандартный"></textarea></div>
+                        <button onclick="startCalls()" id="btn-call" class="w-full h-9 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Начать обзвон</button>
+                    </div>
+                    <div class="rounded-lg border bg-card shadow-sm p-4">
+                        <h3 class="text-sm font-medium mb-3">Результаты</h3>
+                        <div id="c-results"><p class="text-sm text-muted-foreground text-center py-6">Нет активных обзвонов</p></div>
+                    </div>
+                </div>
+                <div class="rounded-lg border bg-card shadow-sm"><div class="p-4 border-b"><h3 class="text-sm font-medium">История звонков</h3></div><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="[&_tr]:border-b"><tr><th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">ID</th><th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Компания</th><th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Телефон</th><th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Статус</th><th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Результат</th><th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Время</th></tr></thead><tbody id="call-log" class="[&_tr:last-child]:border-0"><tr><td colspan="6" class="p-3 text-center text-muted-foreground text-xs">Нет звонков</td></tr></tbody></table></div></div>
+            </div>
+
+            <!-- ===== БАЗА ЛИДОВ ===== -->
+            <div id="panel-leads" class="panel hidden space-y-4">
+                <div class="flex items-center justify-between gap-3 flex-wrap">
+                    <div class="flex items-center gap-2">
+                        <input id="l-search" placeholder="Поиск по названию, телефону..." class="flex h-9 w-64 rounded-md border bg-background px-3 text-sm" onkeyup="debounce(loadLeads,300)()">
+                        <select id="l-status" onchange="loadLeads()" class="h-9 rounded-md border bg-background px-2 text-xs"><option value="">Все статусы</option><option value="new">Новые</option><option value="called">Звонки</option><option value="interested">Интерес</option><option value="sent_wa">WA</option><option value="sent_email">Email</option><option value="refused">Отказ</option></select>
+                        <select id="l-industry" onchange="loadLeads()" class="h-9 rounded-md border bg-background px-2 text-xs"><option value="">Все отрасли</option></select>
+                        <select id="l-score" onchange="loadLeads()" class="h-9 rounded-md border bg-background px-2 text-xs"><option value="">Все оценки</option><option value="hot">Горячие</option><option value="warm">Тёплые</option><option value="cold">Холодные</option></select>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="exportLeads()" class="h-9 px-3 rounded-md border text-xs hover:bg-accent">Экспорт CSV</button>
+                    </div>
+                </div>
+                <div class="rounded-lg border bg-card shadow-sm overflow-x-auto">
+                    <table class="w-full text-sm"><thead class="[&_tr]:border-b"><tr>
+                        <th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground w-8"><input type="checkbox" id="l-select-all" onchange="toggleSelectAll()"></th>
+                        <th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground" onclick="loadLeads('company_name')">Компания</th>
+                        <th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Отрасль</th>
+                        <th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Телефон</th>
+                        <th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Статус</th>
+                        <th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground" onclick="loadLeads('score')">Оценка</th>
+                    </tr></thead><tbody id="l-table" class="[&_tr:last-child]:border-0"><tr><td colspan="6" class="p-3"><div class="skeleton h-8 w-full"></div></td></tr></tbody></table>
+                    <div class="flex items-center justify-between p-3 border-t">
+                        <span class="text-xs text-muted-foreground" id="l-count">--</span>
+                        <div class="flex gap-1" id="l-pagination"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== ШАБЛОНЫ ===== -->
+            <div id="panel-templates" class="panel hidden space-y-4">
+                <div class="flex items-center justify-between">
+                    <p class="text-sm text-muted-foreground">Шаблоны сообщений по отраслям</p>
+                    <button onclick="openModal('template-modal')" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">+ Создать шаблон</button>
+                </div>
+                <div class="rounded-lg border bg-card shadow-sm overflow-x-auto"><table class="w-full text-sm"><thead class="[&_tr]:border-b"><tr><th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Название</th><th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Отрасль</th><th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Канал</th><th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Действия</th></tr></thead><tbody id="templates-table"></tbody></table></div>
+            </div>
+
+            <!-- ===== МЕНЕДЖЕР КАМПАНИЙ ===== -->
+            <div id="panel-newcampaign" class="panel hidden space-y-4">
+                <div class="flex items-center justify-between">
+                    <p class="text-sm text-muted-foreground">Управление кампаниями обзвона</p>
+                    <button onclick="openModal('campaign-modal')" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">+ Новая кампания</button>
+                </div>
+                <div class="rounded-lg border bg-card shadow-sm overflow-x-auto"><table class="w-full text-sm"><thead class="[&_tr]:border-b"><tr><th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Название</th><th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Отрасль</th><th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Канал</th><th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Статус</th><th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Лидов</th><th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Действия</th></tr></thead><tbody id="campaigns-table"></tbody></table></div>
+            </div>
+
+            <!-- ===== НАСТРОЙКИ ===== -->
+            <div id="panel-settings" class="panel hidden">
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div class="rounded-lg border bg-card shadow-sm">
+                        <div class="p-4 border-b flex justify-between"><h3 class="text-sm font-medium">Email (VK Mail SMTP)</h3><span id="smtp-badge" class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-secondary text-secondary-foreground">--</span></div>
+                        <div class="p-4 space-y-2">
+                            <div><label class="text-xs font-medium text-muted-foreground">SMTP сервер</label><input id="s-host" value="smtp.mail.ru" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                            <div><label class="text-xs font-medium text-muted-foreground">Порт</label><input id="s-port" type="number" value="465" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                            <div><label class="text-xs font-medium text-muted-foreground">Email (логин) <span class="text-destructive">*</span></label><input id="s-user" required placeholder="your@mail.ru" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                            <div><label class="text-xs font-medium text-muted-foreground">Пароль приложения <span class="text-destructive">*</span></label><input id="s-pass" type="password" required placeholder="Из настроек VK Mail" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                            <div><label class="text-xs font-medium text-muted-foreground">Имя отправителя</label><input id="s-name" value="Technomax" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                            <div class="flex gap-2"><button onclick="saveSMTP()" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Сохранить</button><button onclick="testSMTP()" class="h-9 px-4 rounded-md border text-sm hover:bg-accent">Тест</button></div>
+                            <div id="smtp-msg" class="text-xs"></div>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="rounded-lg border bg-card shadow-sm">
+                            <div class="p-4 border-b flex justify-between"><h3 class="text-sm font-medium">Telegram уведомления</h3><span id="notif-badge" class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-secondary text-secondary-foreground">--</span></div>
+                            <div class="p-4 space-y-2">
+                                <div><label class="text-xs font-medium text-muted-foreground">Bot Token <span class="text-destructive">*</span></label><input id="n-bot-token" type="password" required placeholder="123456:ABC-DEF..." class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                                <div><label class="text-xs font-medium text-muted-foreground">Chat ID <span class="text-destructive">*</span></label><input id="n-chat-id" required placeholder="-1001234567890" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                                <div class="flex items-center gap-2"><input id="n-auto-send" type="checkbox" class="h-4 w-4 rounded border"><label class="text-xs cursor-pointer" for="n-auto-send">Автоотправка</label></div>
+                                <div class="flex gap-2"><button onclick="saveNotif()" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Сохранить</button><button onclick="testNotif()" class="h-9 px-4 rounded-md border text-sm hover:bg-accent">Тест</button></div>
+                                <div id="notif-msg" class="text-xs"></div>
+                            </div>
+                        </div>
+                        <div class="rounded-lg border bg-card shadow-sm">
+                            <div class="p-4 border-b"><h3 class="text-sm font-medium">Битрикс24 CRM</h3></div>
+                            <div class="p-4 space-y-2">
+                                <div><label class="text-xs font-medium text-muted-foreground">Портал</label><input id="bx-portal" placeholder="b24-xxxxx.bitrix24.kz" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                                <div><label class="text-xs font-medium text-muted-foreground">Webhook Token</label><input id="bx-token" type="password" placeholder="Токен из webhook" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                                <div class="flex gap-2"><button onclick="saveBitrix()" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Сохранить</button><button onclick="syncBitrix()" class="h-9 px-4 rounded-md border text-sm hover:bg-accent">Синхронизировать</button></div>
+                                <div id="bx-msg" class="text-xs"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<!-- MODALS -->
+<div id="agent-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('agent-modal')"><div class="modal"><h3 class="text-base font-semibold mb-4">Новый AI-агент</h3><div class="space-y-3"><div><label class="text-xs font-medium text-muted-foreground">Название</label><input id="ag-name" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1" placeholder="Агент для ломбардов"></div><div><label class="text-xs font-medium text-muted-foreground">Отрасль</label><select id="ag-industry" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"><option value="">Выберите отрасль</option></select></div><div><label class="text-xs font-medium text-muted-foreground">Приветствие</label><input id="ag-welcome" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1" placeholder="Здравствуйте! Это Technomax..."></div><div><label class="text-xs font-medium text-muted-foreground">Промпт агента</label><textarea id="ag-prompt" rows="5" class="flex w-full rounded-md border bg-background px-2 text-sm mt-1 font-mono text-xs" placeholder="Вы — AI-ассистент компании..."></textarea></div><div class="grid grid-cols-2 gap-3"><div><label class="text-xs font-medium text-muted-foreground">Модель</label><input id="ag-model" value="xiaomi/mimo-v2.5-pro" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div><div><label class="text-xs font-medium text-muted-foreground">Голос TTS</label><select id="ag-voice" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"><option value="ru-RU-SvetlanaNeural">Женский</option><option value="ru-RU-DmitryNeural">Мужской</option></select></div></div><div class="flex gap-2 justify-end"><button onclick="closeModal('agent-modal')" class="h-9 px-4 rounded-md border text-sm hover:bg-accent">Отмена</button><button onclick="saveAgent()" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Создать</button></div></div></div></div>
+
+<div id="template-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('template-modal')"><div class="modal"><h3 class="text-base font-semibold mb-4">Новый шаблон</h3><div class="space-y-3"><div><label class="text-xs font-medium text-muted-foreground">Название</label><input id="tpl-name" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div><div class="grid grid-cols-2 gap-3"><div><label class="text-xs font-medium text-muted-foreground">Отрасль</label><select id="tpl-industry" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"><option value="">Все отрасли</option></select></div><div><label class="text-xs font-medium text-muted-foreground">Канал</label><select id="tpl-channel" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="sms">SMS</option></select></div></div><div><label class="text-xs font-medium text-muted-foreground">Тема (email)</label><input id="tpl-subject" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div><div><label class="text-xs font-medium text-muted-foreground">Текст</label><textarea id="tpl-body" rows="5" class="flex w-full rounded-md border bg-background px-2 text-sm mt-1"></textarea></div><div class="flex gap-2 justify-end"><button onclick="closeModal('template-modal')" class="h-9 px-4 rounded-md border text-sm hover:bg-accent">Отмена</button><button onclick="saveTemplate()" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Создать</button></div></div></div></div>
+
+<div id="campaign-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('campaign-modal')"><div class="modal"><h3 class="text-base font-semibold mb-4">Новая кампания</h3><div class="space-y-3"><div><label class="text-xs font-medium text-muted-foreground">Название</label><input id="cmp-name" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div><div class="grid grid-cols-2 gap-3"><div><label class="text-xs font-medium text-muted-foreground">Отрасль</label><select id="cmp-industry" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"><option value="">Все</option></select></div><div><label class="text-xs font-medium text-muted-foreground">Канал</label><select id="cmp-channel" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"><option value="voice">Звонок</option><option value="whatsapp">WhatsApp</option><option value="email">Email</option></select></div></div><div class="grid grid-cols-2 gap-3"><div><label class="text-xs font-medium text-muted-foreground">Макс. звонков</label><input id="cmp-max" type="number" value="50" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div><div><label class="text-xs font-medium text-muted-foreground">CPS</label><input id="cmp-cps" type="number" value="1" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div></div><div><label class="text-xs font-medium text-muted-foreground">Расписание</label><select id="cmp-schedule-select" onchange="document.getElementById('cmp-schedule').value=this.value;document.getElementById('cmp-schedule').classList.toggle('hidden',this.value!=='custom')" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"><option value="">Не запланировано</option><option value="0 9 * * 1-5">Будни 9:00</option><option value="0 10 * * 1-5">Будни 10:00</option><option value="0 9 * * *">Ежедневно 9:00</option><option value="0 14 * * 1-5">Будни 14:00</option><option value="custom">Свой (cron)</option></select><input id="cmp-schedule" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1 hidden" placeholder="0 9 * * 1-5"></div><div class="flex gap-2 justify-end"><button onclick="closeModal('campaign-modal')" class="h-9 px-4 rounded-md border text-sm hover:bg-accent">Отмена</button><button onclick="saveCampaign()" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Создать</button></div></div></div></div>
+
+<!-- Lead Detail Modal -->
+<div id="lead-detail-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('lead-detail-modal')"><div class="modal" style="max-width:700px"><div id="lead-detail-content"><div class="skeleton h-48 w-full"></div></div></div></div>
+
+<!-- Confirm Delete Modal -->
+<div id="confirm-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('confirm-modal')"><div class="modal" style="max-width:380px"><h3 class="text-base font-semibold mb-2" id="confirm-title">Подтверждение</h3><p class="text-sm text-muted-foreground mb-4" id="confirm-text">Вы уверены?</p><div class="flex gap-2 justify-end"><button onclick="closeModal('confirm-modal')" class="h-9 px-4 rounded-md border text-sm hover:bg-accent">Отмена</button><button id="confirm-btn" class="h-9 px-4 rounded-md bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90">Удалить</button></div></div></div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ---- UTILS ----
+function updateClock(){document.getElementById('clock').textContent=new Date().toLocaleString('ru-RU',{timeZone:'Asia/Almaty',hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+setInterval(updateClock,1000);updateClock();
+
+function toast(msg,type='default'){
+    const c=document.getElementById('toast-container');
+    const colors={success:'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/30 dark:border-green-800 dark:text-green-300',error:'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300',warning:'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-800 dark:text-yellow-300',default:'bg-card border text-card-foreground'};
+    const t=document.createElement('div');t.className='toast-item border rounded-lg p-3 shadow-lg text-sm '+colors[type];t.textContent=msg;c.appendChild(t);
+    setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity 0.3s';setTimeout(()=>t.remove(),300)},5000);
+}
+
+function toggleTheme(){document.documentElement.classList.toggle('dark');localStorage.setItem('theme',document.documentElement.classList.contains('dark')?'dark':'light')}
+if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');
+
+function openModal(id){document.getElementById(id).classList.add('show')}
+function closeModal(id){document.getElementById(id).classList.remove('show')}
+
+function confirmAction(title,text,fn){
+    document.getElementById('confirm-title').textContent=title;
+    document.getElementById('confirm-text').textContent=text;
+    const btn=document.getElementById('confirm-btn');
+    btn.onclick=()=>{closeModal('confirm-modal');fn()};
+    openModal('confirm-modal');
+}
+
+let _debounceTimers={};
+function debounce(fn,ms){const k=fn.name||'default';return()=>{clearTimeout(_debounceTimers[k]);_debounceTimers[k]=setTimeout(fn,ms)}}
+
+function toggleSidebar(){
+    const sb=document.getElementById('sidebar');const ov=document.getElementById('sidebar-overlay');
+    sb.classList.toggle('hidden');sb.classList.toggle('flex');ov.classList.toggle('show');
+}
+
+const INDUSTRIES_CACHE_KEY='sf_industries';
+async function getIndustries(){
+    let cached=sessionStorage.getItem(INDUSTRIES_CACHE_KEY);
+    if(cached)return JSON.parse(cached);
+    try{const d=await(await fetch('/api/stats')).json();const ind=(d.by_industry||[]).map(i=>i.industry);sessionStorage.setItem(INDUSTRIES_CACHE_KEY,JSON.stringify(ind));return ind}catch(e){return[]}
+}
+function fillIndustrySelects(){
+    getIndustries().then(inds=>{
+        document.querySelectorAll('select[id$="-industry"]').forEach(sel=>{
+            const cur=sel.value;const isAg=sel.id==='ag-industry';
+            sel.innerHTML=isAg?'<option value="">Выберите отрасль</option>':'<option value="">Все отрасли</option>';
+            inds.forEach(i=>{sel.innerHTML+='<option value="'+i+'">'+i+'</option>'});
+            sel.value=cur;
+        });
+    });
+}
+
+// ---- PANELS ----
+function showPanel(n,el){
+    document.querySelectorAll('.panel').forEach(p=>p.classList.add('hidden'));
+    document.getElementById('panel-'+n).classList.remove('hidden');
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    if(el)el.classList.add('active');
+    const t={dashboard:'Dashboard',agents:'AI Агенты',campaigns:'Быстрый обзвон',leads:'База лидов',templates:'Шаблоны',newcampaign:'Менеджер кампаний',settings:'Конфигурация'};
+    document.getElementById('page-title').textContent=t[n]||'';
+    fillIndustrySelects();
+    if(n==='dashboard')loadDashboard();
+    if(n==='agents')loadStatus();
+    if(n==='campaigns'){loadCallLog();}
+    if(n==='leads')loadLeads();
+    if(n==='templates')loadTemplates();
+    if(n==='newcampaign')loadCampaigns();
+    if(n==='settings'){loadSMTP();loadNotif();}
+    // Close mobile sidebar
+    if(window.innerWidth<768){document.getElementById('sidebar').classList.add('hidden');document.getElementById('sidebar').classList.remove('flex');document.getElementById('sidebar-overlay').classList.remove('show')}
+}
+
+// ---- LEADS (individual rows, search, pagination, sort, score filter) ----
+let lPage=0;const lPerPage=50;lSort='id';lSortDir='DESC';
+async function loadLeads(sort){
+    if(sort){if(lSort===sort)lSortDir=lSortDir==='ASC'?'DESC':'ASC';else{lSort=sort;lSortDir='DESC'}}
+    const q=document.getElementById('l-search')?.value||'';
+    const status=document.getElementById('l-status')?.value||'';
+    const industry=document.getElementById('l-industry')?.value||'';
+    const score=document.getElementById('l-score')?.value||'';
+    try{
+        const url=`/api/leads/list?q=${encodeURIComponent(q)}&status=${status}&industry=${industry}&score=${score}&sort=${lSort}&dir=${lSortDir}&offset=${lPage*lPerPage}&limit=${lPerPage}`;
+        const d=await(await fetch(url)).json();
+        const el=document.getElementById('l-table');
+        if(!d.leads||!d.leads.length){el.innerHTML='<tr><td colspan="6" class="p-3 text-center text-muted-foreground text-xs">Нет лидов</td></tr>';document.getElementById('l-count').textContent='0 записей';document.getElementById('l-pagination').innerHTML='';return}
+        el.innerHTML=d.leads.map(l=>{
+            const sc={hot:'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',warm:'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',cold:'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'};
+            const st={new:'bg-blue-100 text-blue-700',called:'bg-purple-100 text-purple-700',interested:'bg-green-100 text-green-700',sent_wa:'bg-teal-100 text-teal-700',sent_email:'bg-cyan-100 text-cyan-700',refused:'bg-red-100 text-red-700'};
+            return`<tr class="border-b hover:bg-muted/50 cursor-pointer" onclick="openLeadDetail(${l.id})">
+                <td class="p-3" onclick="event.stopPropagation()"><input type="checkbox" class="l-check" value="${l.id}"></td>
+                <td class="p-3 text-xs font-medium">${l.company_name||'--'}</td>
+                <td class="p-3 text-xs text-muted-foreground">${l.industry||'--'}</td>
+                <td class="p-3 text-xs font-mono">${l.mobile||l.phone||'--'}</td>
+                <td class="p-3"><span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${st[l.status]||'bg-secondary'}">${l.status||'--'}</span></td>
+                <td class="p-3"><span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${sc[l.score_category]||'bg-secondary'}">${l.score||0} ${l.score_category||'?'}</span></td>
+            </tr>`
+        }).join('');
+        document.getElementById('l-count').textContent=`${d.total} записей`;
+        // Pagination
+        const pages=Math.ceil(d.total/lPerPage);
+        let pg='';
+        for(let i=0;i<Math.min(pages,10);i++){
+            pg+=`<button onclick="lPage=${i};loadLeads()" class="h-8 w-8 rounded border text-xs ${i===lPage?'bg-primary text-primary-foreground':'hover:bg-accent'}">${i+1}</button>`;
+        }
+        document.getElementById('l-pagination').innerHTML=pg;
+    }catch(e){console.error(e)}
+}
+
+async function openLeadDetail(id){
+    try{
+        const d=await(await fetch('/api/leads/'+id)).json();
+        const c=document.getElementById('lead-detail-content');
+        const scoreHtml=d.score?`<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${d.score.category==='hot'?'bg-red-100 text-red-700':'bg-secondary'}">${d.score.score} ${d.score.category}</span>`:'<span class="text-xs text-muted-foreground">Не оценён</span>';
+        c.innerHTML=`
+            <div class="flex justify-between items-start mb-4">
+                <div><h3 class="text-lg font-semibold">${d.lead.company_name||'--'}</h3><p class="text-sm text-muted-foreground">${d.lead.industry||'--'}</p></div>
+                <button onclick="closeModal('lead-detail-modal')" class="h-8 w-8 rounded border hover:bg-accent text-sm">✕</button>
+            </div>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="text-xs space-y-1"><div><span class="text-muted-foreground">Телефон:</span> ${d.lead.mobile||d.lead.phone||'--'}</div><div><span class="text-muted-foreground">WhatsApp:</span> ${d.lead.whatsapp||'--'}</div><div><span class="text-muted-foreground">Email:</span> ${d.lead.email||'--'}</div><div><span class="text-muted-foreground">Город:</span> ${d.lead.city||'--'}</div></div>
+                <div class="text-xs space-y-1"><div><span class="text-muted-foreground">Статус:</span> ${d.lead.status||'--'}</div><div><span class="text-muted-foreground">Оценка:</span> ${scoreHtml}</div><div><span class="text-muted-foreground">Последний контакт:</span> ${d.context?.last_contact_at||'--'}</div><div><span class="text-muted-foreground">Канал:</span> ${d.context?.last_channel||'--'}</div></div>
+            </div>
+            ${d.sentiment&&d.sentiment.length?`<div class="mb-4"><h4 class="text-sm font-medium mb-2">Sentiment</h4><div class="flex gap-1">${d.sentiment.map(s=>`<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${s.sentiment==='positive'?'bg-green-100 text-green-700':s.sentiment==='negative'?'bg-red-100 text-red-700':s.sentiment==='angry'?'bg-red-200 text-red-800':'bg-secondary'}">${s.sentiment}</span>`).join('')}</div></div>`:''}
+            ${d.history&&d.history.length?`<div><h4 class="text-sm font-medium mb-2">История общения</h4><div class="space-y-1 max-h-48 overflow-y-auto">${d.history.map(h=>`<div class="text-xs p-2 rounded border"><span class="text-muted-foreground">[${h.channel}]</span> <span class="font-medium">${h.direction==='inbound'?'Клиент':'Агент'}:</span> ${h.content?.substring(0,150)||'--'}</div>`).join('')}</div></div>`:'<p class="text-xs text-muted-foreground">Нет истории общения</p>'}
+            <div class="flex gap-2 mt-4">
+                <button onclick="requestTransfer(${id})" class="h-9 px-4 rounded-md border text-sm hover:bg-accent">Перевести менеджеру</button>
+                <button onclick="closeModal('lead-detail-modal')" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Закрыть</button>
+            </div>`;
+        openModal('lead-detail-modal');
+    }catch(e){toast('Ошибка загрузки','error')}
+}
+
+function toggleSelectAll(){const all=document.getElementById('l-select-all').checked;document.querySelectorAll('.l-check').forEach(c=>c.checked=all)}
+function getSelectedLeads(){return Array.from(document.querySelectorAll('.l-check:checked')).map(c=>parseInt(c.value))}
+async function exportLeads(){
+    const ids=getSelectedLeads();
+    const q=document.getElementById('l-search')?.value||'';
+    const status=document.getElementById('l-status')?.value||'';
+    const industry=document.getElementById('l-industry')?.value||'';
+    try{
+        const d=await(await fetch(`/api/leads/export?ids=${ids.join(',')}&q=${encodeURIComponent(q)}&status=${status}&industry=${industry}`)).json();
+        if(!d.leads.length){toast('Нет данных для экспорта','warning');return}
+        let csv='ID,Компания,Отрасль,Телефон,WhatsApp,Email,Город,Статус,Оценка\n';
+        d.leads.forEach(l=>{csv+=`"${l.id}","${l.company_name||''}","${l.industry||''}","${l.mobile||l.phone||''}","${l.whatsapp||''}","${l.email||''}","${l.city||''}","${l.status||''}","${l.score||0}"\n`});
+        const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+        const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='leads_export.csv';a.click();
+        toast('Экспортировано '+d.leads.length+' лидов','success');
+    }catch(e){toast('Ошибка экспорта','error')}
+}
+
+async function requestTransfer(leadId){
+    try{await fetch('/api/transfers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lead_id:leadId,reason:'Запрос из UI'})});toast('Запрос на перевод отправлен','success');closeModal('lead-detail-modal')}catch(e){toast('Ошибка','error')}
+}
+
+// ---- DASHBOARD ----
+let charts={};
+let dashInterval=null;
+let dashCountdown=30;
+let dashCountdownTimer=null;
+function startDashCountdown(){
+    dashCountdown=30;
+    if(dashCountdownTimer)clearInterval(dashCountdownTimer);
+    const el=document.getElementById('dash-countdown');
+    if(el)el.textContent='30s';
+    dashCountdownTimer=setInterval(()=>{
+        dashCountdown--;
+        if(el)el.textContent=dashCountdown+'s';
+        if(dashCountdown<=0)clearInterval(dashCountdownTimer);
+    },1000);
+}
+async function loadDashboard(){
+    try{const d=await(await fetch('/api/analytics/dashboard')).json();
+    document.getElementById('dash-updated').textContent='Обновлено: '+new Date().toLocaleTimeString('ru-RU',{timeZone:'Asia/Almaty',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    startDashCountdown();
+    const sc=d.score_distribution;const total=(sc.hot||0)+(sc.warm||0)+(sc.cold||0)+(sc.unscored||0);
+    const kpiCards=[
+        {v:total,l:'Всего лидов',icon:'<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>',
+         grad:'from-blue-50 to-blue-100/60 dark:from-blue-950/40 dark:to-blue-900/20',border:'border-blue-200/60 dark:border-blue-800/40',
+         iconBg:'bg-blue-100 dark:bg-blue-900/40',iconClr:'text-blue-600 dark:text-blue-400'},
+        {v:sc.hot||0,l:'Горячие',icon:'<path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z"/>',
+         grad:'from-red-50 to-rose-100/60 dark:from-red-950/40 dark:to-rose-900/20',border:'border-red-200/60 dark:border-red-800/40',
+         iconBg:'bg-red-100 dark:bg-red-900/40',iconClr:'text-red-600 dark:text-red-400'},
+        {v:sc.warm||0,l:'Тёплые',icon:'<path d="M14 14.76V3.5a2.5 2.5 0 00-5 0v11.26a4.5 4.5 0 105 0z"/>',
+         grad:'from-orange-50 to-amber-100/60 dark:from-orange-950/40 dark:to-amber-900/20',border:'border-orange-200/60 dark:border-orange-800/40',
+         iconBg:'bg-orange-100 dark:bg-orange-900/40',iconClr:'text-orange-600 dark:text-orange-400'},
+        {v:sc.cold||0,l:'Холодные',icon:'<line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/><line x1="19.07" y1="4.93" x2="4.93" y2="19.07"/>',
+         grad:'from-cyan-50 to-sky-100/60 dark:from-cyan-950/40 dark:to-sky-900/20',border:'border-cyan-200/60 dark:border-cyan-800/40',
+         iconBg:'bg-cyan-100 dark:bg-cyan-900/40',iconClr:'text-cyan-600 dark:text-cyan-400'}
+    ];
+    document.getElementById('dash-kpi').innerHTML=kpiCards.map(k=>
+        '<div class="rounded-xl border '+k.border+' shadow-sm p-5 flex items-start gap-4 hover:shadow-md transition-shadow bg-gradient-to-br '+k.grad+'">'+
+        '<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg '+k.iconBg+'">'+
+        '<svg class="h-6 w-6 '+k.iconClr+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+k.icon+'</svg></div>'+
+        '<div class="min-w-0"><p class="text-[11px] font-medium text-muted-foreground mb-1">'+k.l+'</p>'+
+        '<p class="text-2xl font-bold tracking-tight tabular-nums">'+(k.v).toLocaleString('ru-RU')+'</p></div></div>'
+    ).join('');
+    document.getElementById('dash-callbacks').textContent=d.callbacks_today||0;
+    document.getElementById('dash-transfers').textContent=d.transfers_pending||0;
+    document.getElementById('dash-kb').textContent=d.knowledge_base?.documents||0;
+    document.getElementById('dash-kb-chunks').textContent=(d.knowledge_base?.chunks||0)+' фрагментов';
+    const cbc=document.getElementById('dash-card-callbacks');
+    if(cbc){if(d.callbacks_today>0)cbc.classList.add('ring-1','ring-violet-200','dark:ring-violet-800');else cbc.classList.remove('ring-1','ring-violet-200','dark:ring-violet-800')}
+    const trc=document.getElementById('dash-card-transfers');
+    if(trc){if(d.transfers_pending>0)trc.classList.add('ring-1','ring-amber-200','dark:ring-amber-800');else trc.classList.remove('ring-1','ring-amber-200','dark:ring-amber-800')}
+    const tooltipCfg={backgroundColor:'hsl(222.2 84% 4.9%)',titleFont:{size:12,family:'Inter',weight:'600'},bodyFont:{size:11,family:'Inter'},padding:10,cornerRadius:8,boxPadding:4};
+    const legendCfg={position:'bottom',labels:{padding:16,usePointStyle:true,pointStyleWidth:8,font:{size:11,family:'Inter'},color:'hsl(215.4 16.3% 46.9%)'}};
+    const id=d.industry_data||[];
+    if(charts.industry)charts.industry.destroy();
+    charts.industry=new Chart(document.getElementById('chart-industry'),{type:'bar',data:{labels:id.map(i=>(i.industry||'?').substring(0,14)),datasets:[{label:'Всего',data:id.map(i=>i.total),backgroundColor:'rgba(59,130,246,0.8)',borderRadius:4,borderSkipped:false},{label:'Интерес',data:id.map(i=>i.interested_cnt),backgroundColor:'rgba(34,197,94,0.8)',borderRadius:4,borderSkipped:false},{label:'Отказ',data:id.map(i=>i.refused_cnt),backgroundColor:'rgba(239,68,68,0.8)',borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:legendCfg,tooltip:tooltipCfg},scales:{x:{ticks:{font:{size:10,family:'Inter'}},grid:{display:false}},y:{ticks:{font:{size:10,family:'Inter'}},grid:{color:'rgba(0,0,0,0.06)'}}}}});
+    if(charts.scores)charts.scores.destroy();
+    charts.scores=new Chart(document.getElementById('chart-scores'),{type:'doughnut',data:{labels:['Горячие','Тёплые','Холодные','Без оценки'],datasets:[{data:[sc.hot||0,sc.warm||0,sc.cold||0,sc.unscored||0],backgroundColor:['rgba(239,68,68,0.85)','rgba(249,115,22,0.85)','rgba(59,130,246,0.85)','rgba(148,163,184,0.85)'],borderWidth:2,borderColor:'hsl(var(--card))',hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:true,cutout:'65%',plugins:{legend:legendCfg,tooltip:tooltipCfg}}});
+    const st=d.status_counts||{};
+    if(charts.funnel)charts.funnel.destroy();
+    charts.funnel=new Chart(document.getElementById('chart-funnel'),{type:'bar',data:{labels:['Новые','Звонки','Интерес','WA','Email','Отказ'],datasets:[{data:[st.new||0,st.called||0,st.interested||0,st.sent_wa||0,st.sent_email||0,st.refused||0],backgroundColor:['rgba(59,130,246,0.8)','rgba(139,92,246,0.8)','rgba(34,197,94,0.8)','rgba(16,185,129,0.8)','rgba(6,182,212,0.8)','rgba(239,68,68,0.8)'],borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:true,indexAxis:'y',plugins:{legend:{display:false},tooltip:tooltipCfg},scales:{x:{ticks:{font:{size:10,family:'Inter'}},grid:{color:'rgba(0,0,0,0.06)'}},y:{ticks:{font:{size:10,family:'Inter'}},grid:{display:false}}}}});
+    const sm=d.sentiment_summary||{};
+    if(charts.sentiment)charts.sentiment.destroy();
+    charts.sentiment=new Chart(document.getElementById('chart-sentiment'),{type:'doughnut',data:{labels:['Позитив','Нейтрал','Негатив','Злой'],datasets:[{data:[sm.positive||0,sm.neutral||0,sm.negative||0,sm.angry||0],backgroundColor:['rgba(34,197,94,0.85)','rgba(148,163,184,0.85)','rgba(249,115,22,0.85)','rgba(239,68,68,0.85)'],borderWidth:2,borderColor:'hsl(var(--card))',hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:true,cutout:'65%',plugins:{legend:legendCfg,tooltip:tooltipCfg}}});
+    }catch(e){console.error('Dashboard error:',e)}
+}
+// Auto-refresh dashboard every 30s when visible
+setInterval(()=>{if(!document.getElementById('panel-dashboard').classList.contains('hidden')){loadDashboard()}},30000);
+
+// ---- AGENTS ----
+function setBadge(id,text,state){const el=document.getElementById(id);const c={green:'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',red:'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',yellow:'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',gray:'bg-secondary text-secondary-foreground'};el.className='inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold '+c[state];el.textContent=text;}
+async function loadStatus(){
+    try{const d=await(await fetch('/api/whatsapp/status')).json();setBadge('wa-badge',d.state==='open'?'Подключён':d.state==='connecting'?'Подключение':'Отключён',d.state==='open'?'green':d.state==='connecting'?'yellow':'red')}catch(e){setBadge('wa-badge','Ошибка','red')}
+    try{const d=await(await fetch('http://localhost:8082/health')).json();setBadge('pp-badge','Активен','green');document.getElementById('pp-name').textContent=d.agent;document.getElementById('pp-ast').textContent=d.asterisk==='connected'?'Подключён':'Отключён';document.getElementById('pp-ast').className=d.asterisk==='connected'?'text-green-600':'text-red-600'}catch(e){setBadge('pp-badge','Ошибка','red')}
+    try{const c=await(await fetch('http://localhost:8082/config')).json();document.getElementById('pp-llm').textContent=c.llm||'--';document.getElementById('pp-stt').textContent=c.stt==='whisper'?'Whisper':c.stt||'--';document.getElementById('pp-tts').textContent=c.tts==='edge-tts'?'Edge TTS':c.tts||'--'}catch(e){}
+    try{const d=await(await fetch('/api/calls/status')).json();setBadge('ast-badge',d.available?'Активен':'Недоступен',d.available?'green':'red');document.getElementById('ast-trunk').textContent=d.sip_trunk||'Не настроен'}catch(e){setBadge('ast-badge','Ошибка','red')}
+    try{const d=await(await fetch('/api/stats')).json();const s=d.overall||{};const total=Object.values(s).reduce((a,b)=>a+b,0);const done=(s.called||0)+(s.interested||0)+(s.callback||0)+(s.sent_wa||0)+(s.sent_email||0)+(s.done||0)+(s.refused||0);const pct=total>0?Math.round(done/total*100):0;document.getElementById('stats').innerHTML=[[total,'Всего'],[s.new||0,'Новые'],[s.called||0,'Звонки'],[(s.sent_wa||0)+(s.sent_email||0),'Отправлено'],[s.refused||0,'Отказы']].map(([v,l])=>'<div class="text-center"><div class="text-xl font-bold">'+v+'</div><div class="text-[10px] text-muted-foreground uppercase mt-0.5">'+l+'</div></div>').join('');document.getElementById('prog').style.width=pct+'%';document.getElementById('prog-txt').textContent=pct+'% обработано ('+done+' из '+total+')'}catch(e){}
+    loadIndustryAgents();
+}
+async function loadIndustryAgents(){try{const d=await(await fetch('/api/agents')).json();const el=document.getElementById('industry-agents');if(!d.agents.length){el.innerHTML='<p class="text-sm text-muted-foreground text-center py-4">Нет агентов. Создайте первого.</p>';return}el.innerHTML='<div class="space-y-2">'+d.agents.map(a=>'<div class="flex items-center justify-between p-2 rounded border"><div><span class="text-sm font-medium">'+a.name+'</span><span class="text-xs text-muted-foreground ml-2">'+a.industry+'</span></div><div class="flex gap-1"><span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold '+(a.enabled?'bg-green-100 text-green-800':'bg-gray-100 text-gray-600')+'">'+(a.enabled?'Активен':'Выкл')+'</span><button onclick="confirmAction(\'Удалить агента?\',\''+a.name+'\',()=>deleteAgent('+a.id+'))" class="text-xs text-red-600 hover:underline ml-2">Удалить</button></div></div>').join('')+'</div>'}catch(e){}}
+async function saveAgent(){try{await fetch('/api/agents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('ag-name').value,industry:document.getElementById('ag-industry').value,Welcome_phrase:document.getElementById('ag-welcome').value,prompt:document.getElementById('ag-prompt').value,llm_model:document.getElementById('ag-model').value,voice:document.getElementById('ag-voice').value})});toast('Агент создан','success');closeModal('agent-modal');loadIndustryAgents()}catch(e){toast('Ошибка','error')}}
+async function deleteAgent(id){try{await fetch('/api/agents/'+id,{method:'DELETE'});toast('Удалён','success');loadIndustryAgents()}catch(e){toast('Ошибка','error')}}
+async function loadQR(){try{const d=await(await fetch('/api/whatsapp/qr-image')).json();const s=document.getElementById('wa-qr-section');const img=document.getElementById('wa-qr-img');if(d.state==='open'){s.classList.add('hidden');toast('WhatsApp уже подключён')}else if(d.qr){img.src=d.qr;s.classList.remove('hidden')}else{toast('QR не готов...');setTimeout(loadQR,3000)}}catch(e){toast('Ошибка QR','error')}}
+async function reconnectWA(){toast('Переподключение...');try{await fetch('/api/whatsapp/connect',{method:'POST'});setTimeout(()=>{loadQR();loadStatus()},3000)}catch(e){toast('Ошибка','error')}}
+
+// ---- CALLS ----
+async function startCalls(){const b=document.getElementById('btn-call');b.disabled=true;b.innerHTML='Звоним...';try{const d=await(await fetch('/api/calls/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({industry:document.getElementById('c-industry').value||null,limit:parseInt(document.getElementById('c-limit').value)||5})})).json();toast('Запущено '+(d.calls?.length||0)+' звонков','success');setTimeout(loadCallLog,2000)}catch(e){toast('Ошибка','error')}finally{b.disabled=false;b.innerHTML='Начать обзвон'}}
+async function loadCallLog(){try{const d=await(await fetch('http://localhost:8082/calls?limit=20')).json();const el=document.getElementById('call-log');if(!d.length){el.innerHTML='<tr><td colspan="6" class="p-3 text-center text-muted-foreground text-xs">Нет звонков</td></tr>';return}el.innerHTML=d.map(c=>{const bc={completed:'bg-green-50 text-green-700',calling:'bg-yellow-50 text-yellow-700',failed:'bg-red-50 text-red-700'};const b=bc[c.status]||'bg-blue-50 text-blue-700';return'<tr class="border-b"><td class="p-3 font-mono text-[10px] text-muted-foreground">'+(c.call_id?.slice(-8)||'--')+'</td><td class="p-3 text-xs">'+(c.lead?.company_name||'--')+'</td><td class="p-3 font-mono text-xs">'+(c.lead?.phone||'--')+'</td><td class="p-3"><span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold '+b+'">'+c.status+'</span></td><td class="p-3 text-xs text-muted-foreground">'+(c.result||'--')+'</td><td class="p-3 text-[10px] text-muted-foreground">'+(c.start_time?new Date(c.start_time).toLocaleTimeString('ru-RU'):'--')+'</td></tr>'}).join('')}catch(e){}}
+
+// ---- TEMPLATES ----
+async function loadTemplates(){try{const d=await(await fetch('/api/templates')).json();const el=document.getElementById('templates-table');if(!d.templates.length){el.innerHTML='<tr><td colspan="4" class="p-3 text-center text-muted-foreground text-xs">Нет шаблонов</td></tr>';return}el.innerHTML=d.templates.map(t=>'<tr class="border-b hover:bg-muted/50"><td class="p-3 text-xs font-medium">'+t.name+'</td><td class="p-3 text-xs">'+(t.industry||'Все')+'</td><td class="p-3 text-xs"><span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-secondary">'+t.channel+'</span></td><td class="p-3"><button onclick="confirmAction(\'Удалить шаблон?\',\''+t.name+'\',()=>deleteTemplate('+t.id+'))" class="text-xs text-red-600 hover:underline">Удалить</button></td></tr>').join('')}catch(e){}}
+async function saveTemplate(){try{await fetch('/api/templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('tpl-name').value,industry:document.getElementById('tpl-industry').value,channel:document.getElementById('tpl-channel').value,subject:document.getElementById('tpl-subject').value,body:document.getElementById('tpl-body').value})});toast('Шаблон создан','success');closeModal('template-modal');loadTemplates()}catch(e){toast('Ошибка','error')}}
+async function deleteTemplate(id){try{await fetch('/api/templates/'+id,{method:'DELETE'});toast('Удалён','success');loadTemplates()}catch(e){toast('Ошибка','error')}}
+
+// ---- CAMPAIGNS ----
+async function loadCampaigns(){try{const d=await(await fetch('/api/campaigns')).json();const el=document.getElementById('campaigns-table');if(!d.campaigns.length){el.innerHTML='<tr><td colspan="6" class="p-3 text-center text-muted-foreground text-xs">Нет кампаний</td></tr>';return}el.innerHTML=d.campaigns.map(c=>{const sc={draft:'bg-gray-100 text-gray-700',scheduled:'bg-blue-100 text-blue-700',running:'bg-green-100 text-green-700',paused:'bg-yellow-100 text-yellow-700',completed:'bg-purple-100 text-purple-700'};return'<tr class="border-b hover:bg-muted/50"><td class="p-3 text-xs font-medium">'+c.name+'</td><td class="p-3 text-xs">'+(c.industry||'Все')+'</td><td class="p-3 text-xs">'+c.channel+'</td><td class="p-3"><span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold '+(sc[c.status]||'bg-secondary')+'">'+c.status+'</span></td><td class="p-3 text-xs">'+(c.completed_leads||0)+'/'+(c.total_leads||0)+'</td><td class="p-3 flex gap-1">'+(c.status==='draft'||c.status==='paused'?`<button onclick="startCampaign(${c.id})" class="text-xs text-green-600 hover:underline">Старт</button>`:'')+(c.status==='running'?`<button onclick="pauseCampaign(${c.id})" class="text-xs text-yellow-600 hover:underline">Пауза</button>`:'')+'<button onclick="confirmAction(\'Удалить кампанию?\',\''+c.name+'\',()=>deleteCampaign('+c.id+'))" class="text-xs text-red-600 hover:underline">Удалить</button></td></tr>'}).join('')}catch(e){}}
+async function saveCampaign(){try{await fetch('/api/campaigns',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('cmp-name').value,industry:document.getElementById('cmp-industry').value,channel:document.getElementById('cmp-channel').value,max_calls:parseInt(document.getElementById('cmp-max').value),cps:parseInt(document.getElementById('cmp-cps').value),schedule_cron:document.getElementById('cmp-schedule').value})});toast('Кампания создана','success');closeModal('campaign-modal');loadCampaigns()}catch(e){toast('Ошибка','error')}}
+async function deleteCampaign(id){try{await fetch('/api/campaigns/'+id,{method:'DELETE'});toast('Удалена','success');loadCampaigns()}catch(e){toast('Ошибка','error')}}
+async function startCampaign(id){try{await fetch('/api/campaigns/'+id+'/start',{method:'POST'});toast('Кампания запущена','success');loadCampaigns()}catch(e){toast('Ошибка','error')}}
+async function pauseCampaign(id){try{await fetch('/api/campaigns/'+id+'/pause',{method:'POST'});toast('Кампания на паузе','warning');loadCampaigns()}catch(e){toast('Ошибка','error')}}
+
+// ---- SMTP ----
+async function loadSMTP(){try{const d=await(await fetch('/api/config/smtp')).json();document.getElementById('s-host').value=d.host||'smtp.mail.ru';document.getElementById('s-port').value=d.port||465;document.getElementById('s-user').value=d.username||'';document.getElementById('s-name').value=d.from_name||'Technomax';document.getElementById('smtp-badge').textContent=d.configured?'Настроено':'Не настроено';document.getElementById('smtp-badge').className=d.configured?'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-green-100 text-green-800':'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-secondary text-secondary-foreground'}catch(e){}}
+async function saveSMTP(){
+    const user=document.getElementById('s-user').value;const pass=document.getElementById('s-pass').value;
+    if(!user){toast('Email обязателен','error');document.getElementById('s-user').focus();return}
+    if(!pass){toast('Пароль обязателен','error');document.getElementById('s-pass').focus();return}
+    try{await fetch('/api/config/smtp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({host:document.getElementById('s-host').value,port:parseInt(document.getElementById('s-port').value),username:user,password:pass,from_name:document.getElementById('s-name').value})});toast('SMTP сохранён','success')}catch(e){toast('Ошибка','error')}}
+async function testSMTP(){const to=prompt('Email для теста:');if(!to)return;try{const d=await(await fetch('/api/config/smtp/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to})})).json();document.getElementById('smtp-msg').innerHTML=d.success?'<span class="text-green-600">Отправлено!</span>':'<span class="text-red-600">Ошибка: '+(d.error||'')+'</span>'}catch(e){toast('Ошибка','error')}}
+
+// ---- NOTIFICATIONS ----
+async function loadNotif(){try{const d=await(await fetch('/api/config/notifications')).json();document.getElementById('n-chat-id').value=d.telegram_chat_id||'';document.getElementById('n-auto-send').checked=d.auto_send;const b=document.getElementById('notif-badge');if(d.auto_send){b.className='inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-green-100 text-green-800';b.textContent='ВКЛ'}else{b.className='inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-yellow-100 text-yellow-800';b.textContent='ВЫКЛ'}}catch(e){}}
+async function saveNotif(){
+    const token=document.getElementById('n-bot-token').value;const chatId=document.getElementById('n-chat-id').value;
+    if(!token&&!chatId){toast('Bot Token или Chat ID обязателен','error');return}
+    try{await fetch('/api/config/notifications',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_bot_token:token,telegram_chat_id:chatId,auto_send:document.getElementById('n-auto-send').checked})});toast('Сохранено','success');loadNotif()}catch(e){toast('Ошибка','error')}}
+async function testNotif(){try{const d=await(await fetch('/api/config/notifications/test',{method:'POST'})).json();document.getElementById('notif-msg').innerHTML=d.success?'<span class="text-green-600">Отправлено!</span>':'<span class="text-red-600">Ошибка</span>'}catch(e){toast('Ошибка','error')}}
+
+// ---- BITRIX ----
+async function saveBitrix(){try{await fetch('/api/config/bitrix',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({portal:document.getElementById('bx-portal').value,webhook_token:document.getElementById('bx-token').value})});toast('Bitrix сохранён','success')}catch(e){toast('Ошибка','error')}}
+async function syncBitrix(){try{const d=await(await fetch('/api/bitrix/sync',{method:'POST'})).json();document.getElementById('bx-msg').innerHTML=d.ok?'<span class="text-green-600">Синхронизировано: '+d.synced+' контактов</span>':'<span class="text-red-600">'+(d.error||'Ошибка')+'</span>'}catch(e){toast('Ошибка','error')}}
+
+// ---- INIT ----
+showPanel('dashboard',document.querySelector('.nav-btn.active'));
+setInterval(()=>{if(!document.getElementById('panel-agents').classList.contains('hidden'))loadStatus()},15000);
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env.pipecat
+.auth.json
+*.db
+*.db-journal
+*.db-wal
+.DS_Store
+.pytest_cache/
+node_modules/
+.venv/
+venv/
+*.egg-info/
+qr.html
+config.json
