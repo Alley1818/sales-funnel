@@ -181,6 +181,17 @@ def update_status(lead_id):
 
 
 @require_auth
+@leads_bp.route("/api/leads/<int:lead_id>/timeline")
+def lead_timeline(lead_id):
+    """Get unified timeline for a lead — all events chronologically."""
+    from agent_sync import get_lead_timeline
+    limit = int(request.args.get("limit", 50))
+    event_type = request.args.get("event_type", "").strip() or None
+    events = get_lead_timeline(lead_id, limit=limit, event_type=event_type)
+    return jsonify({"events": events, "count": len(events)})
+
+
+@require_auth
 @leads_bp.route("/api/industries")
 def industries():
     """Get list of industries from the database."""

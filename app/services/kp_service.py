@@ -33,11 +33,12 @@ def send_kp(lead_id: int, company_name: str = "", industry: str = "") -> dict:
         results["email"] = _send_email_kp(lead, lead_id, industry)
 
     # Log to agent_sync
-    from agent_sync import log_message
+    from agent_sync import log_message, log_kp_sent
     log_message(
         lead_id, "whatsapp", "outbound",
         f"КП отправлено для {company_name}", results,
     )
+    log_kp_sent(lead_id, "whatsapp", company_name)
 
     return {"results": results}
 

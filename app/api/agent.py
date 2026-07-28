@@ -36,7 +36,7 @@ def agent_send_kp():
 def agent_log_call():
     """Called by Technomax agent to log conversation result."""
     from leads_db import update_lead_status
-    from agent_sync import log_message, sync_after_whatsapp, update_lead_context
+    from agent_sync import log_message, sync_after_whatsapp, update_lead_context, log_status_change
     from db_conn import get_conn
 
     data = request.get_json() or {}
@@ -53,11 +53,13 @@ def agent_log_call():
     if not lead:
         return jsonify({"error": "Lead not found"}), 404
 
+    old_status = lead["status"] if lead else "unknown"
     status_map = {"interested": "interested", "callback": "callback", "refused": "refused"}
     new_status = status_map.get(result, "called")
     update_lead_status(conn, lead_id, new_status, f"[{channel}] {notes}")
 
     log_message(lead_id, channel, "inbound", notes[:500], {"result": result})
+    log_status_change(lead_id, old_status, new_status, f"[{channel}] {notes[:100]}")
     sync_after_whatsapp(lead_id, notes, is_inbound=True)
 
     if result == "interested":
@@ -68,6 +70,43 @@ def agent_log_call():
         update_lead_context(lead_id, stage="negotiating", interest_level=5)
 
     return jsonify({"ok": True})
+
+
+@require_auth
+@agent_bp.route("/api/agent/push-leads", methods=["POST"])
+def push_leads():
+    """Push leads to a Technomax autocall task."""
+    from app.services.lead_push_service import push_leads_to_task
+    from db_conn import get_conn
+
+    data = request.get_json() or {}
+    lead_ids = data.get("lead_ids", [])
+    task_name = data.get("task_name", "Funnel Push")
+    agent_id = data.get("agent_id", "")
+    bot_id = data.get("bot_id", "")
+    cps = data.get("cps", 1)
+
+    if not lead_ids:
+        return jsonify({"error": "lead_ids required"}), 400
+
+    conn = get_conn()
+    placeholders = ",".join("?" * len(lead_ids))
+    rows = conn.execute(
+        f"SELECT * FROM leads WHERE id IN ({placeholders})", lead_ids
+    ).fetchall()
+    leads = [dict(r) for r in rows]
+
+    if not leads:
+        return jsonify({"error": "No leads found"}), 404
+
+    result = push_leads_to_task(
+        leads=leads, task_name=task_name,
+        agent_id=agent_id, bot_id=bot_id, cps=cps,
+    )
+
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result)
 
 
 @require_auth
