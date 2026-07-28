@@ -165,7 +165,7 @@ jobs:
           password: ${{ secrets.VPS_PASSWORD }}
           script: |
             set -e
-            APP_DIR="/opt/sales-funnel"
+            APP_DIR="$HOME/sales-funnel"
 
             # Clone or pull
             if [ -d "$APP_DIR" ]; then
