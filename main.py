@@ -35,6 +35,14 @@ logging.basicConfig(
 logger = logging.getLogger("sales_funnel")
 
 app = Flask(__name__)
+app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", os.urandom(32).hex())
+
+# CSRF protection for state-changing requests
+try:
+    from flask_wtf.csrf import CSRFProtect
+    csrf = CSRFProtect(app)
+except ImportError:
+    logger.warning("flask-wtf not installed — CSRF protection disabled")
 
 
 @app.teardown_appcontext
@@ -116,6 +124,20 @@ def pwa_manifest():
 @app.route("/health")
 def health():
     return jsonify({"status": "ok"})
+
+
+@app.route("/health/db")
+def health_db():
+    """Debug endpoint — check DB state without auth."""
+    try:
+        conn = init_db()
+        tables = [r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()]
+        lead_count = conn.execute("SELECT COUNT(*) FROM leads").fetchone()[0]
+        return jsonify({"ok": True, "tables": tables, "leads": lead_count})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @require_auth
@@ -456,7 +478,7 @@ def agent_log_call():
 def create_technomax_agent():
     """Create AI agent on Technomax platform."""
     import httpx as _httpx
-    from technomax_agent import BASE_URL, CREDENTIALS, _headers
+    from technomax_agent import BASE_URL, _get_credentials, _headers
 
     data = request.get_json() or {}
     funnel_url = data.get("funnel_url", "http://YOUR_VPS_IP:5050")
@@ -466,7 +488,7 @@ def create_technomax_agent():
             # Authenticate
             r = _client.post(
                 f"{BASE_URL}/iam/api/v1/auth/login",
-                json=CREDENTIALS,
+                json=_get_credentials(),
                 headers={"Origin": BASE_URL, "Referer": f"{BASE_URL}/app", "Content-Type": "application/json"},
             )
             if r.status_code != 200:
@@ -499,14 +521,30 @@ def create_technomax_agent():
 @require_auth
 @app.route("/api/calls/start", methods=["POST"])
 def start_ai_calls():
-    """Start AI calls via Pipecat agent."""
+    """Start AI calls via Pipecat agent (runs in background thread)."""
+    import threading
     data = request.get_json() or {}
     industry = data.get("industry")
     limit = data.get("limit", 5)
 
     eng = get_engine()
-    results = eng.start_ai_calls(industry=industry, limit=limit)
-    return jsonify({"calls": results, "count": len(results)})
+
+    # Run in background to avoid blocking the request thread
+    # (start_ai_calls has time.sleep between calls)
+    result_holder = {"calls": [], "done": False}
+
+    def _run():
+        try:
+            result_holder["calls"] = eng.start_ai_calls(industry=industry, limit=limit)
+        except Exception as e:
+            result_holder["calls"] = [{"error": str(e)}]
+        finally:
+            result_holder["done"] = True
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    return jsonify({"status": "started", "message": f"Calling up to {limit} leads in background",
+                    "check_status_at": "/api/calls/status"})
 
 
 @require_auth
@@ -632,7 +670,31 @@ def cli():
     if cmd == "serve":
         port = int(os.environ.get("PORT", "5050"))
         logger.info("Starting Sales Funnel API on port %d", port)
-        app.run(host="0.0.0.0", port=port, debug=False)
+        try:
+            import gunicorn.app.base
+
+            class StandaloneApplication(gunicorn.app.base.BaseApplication):
+                def __init__(self, app, options=None):
+                    self.options = options or {}
+                    self.application = app
+                    super().__init__()
+
+                def load_config(self):
+                    for key, value in self.options.items():
+                        if key in self.cfg.settings and value is not None:
+                            self.cfg.set(key.lower(), value)
+
+                def load(self):
+                    return self.application
+
+            StandaloneApplication(app, {
+                "bind": f"0.0.0.0:{port}",
+                "workers": int(os.environ.get("GUNICORN_WORKERS", "2")),
+                "timeout": 120,
+            }).run()
+        except ImportError:
+            logger.warning("gunicorn not installed — falling back to Flask dev server")
+            app.run(host="0.0.0.0", port=port, debug=False)
 
     elif cmd == "import":
         from leads_db import import_excel
