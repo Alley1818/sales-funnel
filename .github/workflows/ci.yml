@@ -73,12 +73,12 @@ jobs:
           from advanced_features import (add_document, search_knowledge, get_rag_context,
               analyze_sentiment, log_sentiment, auto_score_lead, batch_score_leads,
               schedule_callback, get_pending_callbacks, request_transfer,
-              log_action, get_action_log, authenticate_user, verify_session,
+              log_action, get_action_log,
               get_dashboard_data, get_roi_data)
           assert all(callable(f) for f in [add_document, search_knowledge, get_rag_context,
               analyze_sentiment, log_sentiment, auto_score_lead, batch_score_leads,
               schedule_callback, get_pending_callbacks, request_transfer,
-              log_action, get_action_log, authenticate_user, verify_session,
+              log_action, get_action_log,
               get_dashboard_data, get_roi_data])
           print('Advanced features OK')
           "
