@@ -185,8 +185,12 @@ jobs:
             source venv/bin/activate
             pip install -q flask requests openpyxl httpx python-dotenv gunicorn
 
-            # Docker containers
-            docker compose down 2>/dev/null || true
+            # Docker containers - force clean stop to free ports
+            docker compose down --remove-orphans 2>/dev/null || true
+            # Kill any orphan containers holding port 8080/8082
+            docker ps -q --filter "publish=8080" | xargs -r docker stop 2>/dev/null || true
+            docker ps -q --filter "publish=8082" | xargs -r docker stop 2>/dev/null || true
+            sleep 3
             docker compose build
             docker compose up -d
 
