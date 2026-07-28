@@ -26,9 +26,9 @@ logger = logging.getLogger("pipecat-agent")
 CONFIG = {
     "asterisk": {
         "host": os.getenv("ASTERISK_HOST", "asterisk"),
-        "port": int(os.getenv("ASTERISK_PORT", "8088")),
+        "port": int(os.getenv("ASTERISK_PORT", "8089")),
         "ari_user": os.getenv("ASTERISK_ARI_USER", "sales-funnel"),
-        "ari_password": os.getenv("ASTERISK_ARI_PASSWORD", "ari_secret_2026"),
+        "ari_password": os.getenv("ASTERISK_ARI_PASSWORD", ""),
     },
     "sip": {
         "host": os.getenv("SIP_HOST", ""),
