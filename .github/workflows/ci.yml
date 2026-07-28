@@ -19,7 +19,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install flask requests openpyxl httpx python-dotenv py_compile
+          pip install flask requests openpyxl httpx python-dotenv pytest
 
       - name: Compile check all modules
         run: |
