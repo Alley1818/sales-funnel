@@ -211,8 +211,12 @@ jobs:
           command_timeout: 1m
           script: |
             cd "$HOME/sales-funnel"
-            pkill -f "python.*main.py" 2>/dev/null || true
+            # Kill previous Flask instance via PID file
+            if [ -f /tmp/sales-funnel-flask.pid ]; then
+              kill $(cat /tmp/sales-funnel-flask.pid) 2>/dev/null || true
+              rm -f /tmp/sales-funnel-flask.pid
+            fi
             sleep 1
-            source venv/bin/activate
             nohup venv/bin/python3 -c "from main import app; app.run(host='0.0.0.0', port=5050)" > /var/log/sales-funnel.log 2>&1 &
-            echo "Flask restarted OK"
+            echo $! > /tmp/sales-funnel-flask.pid
+            echo "Flask restarted OK (PID: $(cat /tmp/sales-funnel-flask.pid))"
