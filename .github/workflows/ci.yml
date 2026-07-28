@@ -161,17 +161,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy to VPS
+      - name: Pull code on VPS
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
+          command_timeout: 2m
           script: |
             set -e
             APP_DIR="$HOME/sales-funnel"
-
-            # Clone or pull
             if [ -d "$APP_DIR" ]; then
               cd "$APP_DIR"
               git pull origin main
@@ -179,33 +178,41 @@ jobs:
               git clone https://github.com/Alley1818/sales-funnel.git "$APP_DIR"
               cd "$APP_DIR"
             fi
-
-            # Create .env files from examples if missing
             [ ! -f .env ] && cp .env.example .env
             [ ! -f .env.pipecat ] && cp .env.pipecat.example .env.pipecat
-
-            # Python venv
             python3 -m venv venv 2>/dev/null || true
             source venv/bin/activate
             pip install -q flask requests openpyxl httpx python-dotenv gunicorn
+            echo "Code updated OK"
 
-            # Docker containers - force clean stop to free ports
+      - name: Deploy Docker containers
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          command_timeout: 10m
+          script: |
+            cd "$HOME/sales-funnel"
             docker compose down --remove-orphans 2>/dev/null || true
-            # Kill any orphan containers holding port 8080/8082
             docker ps -q --filter "publish=8080" | xargs -r docker stop 2>/dev/null || true
             docker ps -q --filter "publish=8082" | xargs -r docker stop 2>/dev/null || true
             sleep 3
-            docker compose build
+            docker compose build > /tmp/sf-build.log 2>&1 || { cat /tmp/sf-build.log; exit 1; }
             docker compose up -d
+            echo "Docker deploy OK"
 
-            # Restart Flask via systemd or direct
-            if systemctl is-active --quiet sales-funnel 2>/dev/null; then
-              systemctl restart sales-funnel
-            else
-              pkill -f "python.*main.py" 2>/dev/null || true
-              sleep 1
-              cd "$APP_DIR"
-              nohup venv/bin/python3 -c "from main import app; app.run(host='0.0.0.0', port=5050)" > /var/log/sales-funnel.log 2>&1 &
-            fi
-
-            echo "Deploy complete!"
+      - name: Restart Flask app
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          command_timeout: 1m
+          script: |
+            cd "$HOME/sales-funnel"
+            pkill -f "python.*main.py" 2>/dev/null || true
+            sleep 1
+            source venv/bin/activate
+            nohup venv/bin/python3 -c "from main import app; app.run(host='0.0.0.0', port=5050)" > /var/log/sales-funnel.log 2>&1 &
+            echo "Flask restarted OK"
