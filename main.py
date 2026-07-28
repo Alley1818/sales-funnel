@@ -114,5 +114,41 @@ def cli():
         print(f"Unknown command: {cmd}")
 
 
+# ---- Module-level app for WSGI servers / health checks ----
+# CI/CD and health scripts do "from main import app".
+# Lazy creation avoids side-effects during CLI runs.
+_app = None
+
+def _get_app():
+    global _app
+    if _app is None:
+        try:
+            from app import create_app
+            _app = create_app()
+        except Exception:
+            _app = None
+    return _app
+
+
+class _AppProxy:
+    """Lazy proxy — defers create_app() until first real use."""
+
+    def __call__(self, environ, start_response):
+        real = _get_app()
+        if real is None:
+            start_response("503 Service Unavailable", [("Content-Type", "text/plain")])
+            return [b"Application not initialized"]
+        return real(environ, start_response)
+
+    def __getattr__(self, name):
+        real = _get_app()
+        if real is None:
+            raise AttributeError(f"app not initialized (requested {name})")
+        return getattr(real, name)
+
+
+app = _AppProxy()
+
+
 if __name__ == "__main__":
     cli()

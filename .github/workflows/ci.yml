@@ -30,9 +30,7 @@ jobs:
           python -m py_compile main.py
           python -m py_compile middleware.py
           python -m py_compile leads_db.py
-          python -m py_compile leads_api.py
           python -m py_compile features_api.py
-          python -m py_compile advanced_api.py
           python -m py_compile advanced_features.py
           python -m py_compile funnel_features.py
           python -m py_compile funnel_engine.py
@@ -45,6 +43,16 @@ jobs:
           python -m py_compile db_conn.py
           python -m py_compile db_extended.py
           python -m py_compile pipecat_client.py
+          python -m py_compile app/__init__.py
+          python -m py_compile app/api/core.py
+          python -m py_compile app/api/leads.py
+          python -m py_compile app/api/whatsapp.py
+          python -m py_compile app/api/agent.py
+          python -m py_compile app/api/config_routes.py
+          python -m py_compile app/api/technomax.py
+          python -m py_compile app/api/features.py
+          python -m py_compile app/api/advanced.py
+          python -m py_compile app/services/kp_service.py
           echo "All modules compile OK"
 
       - name: Test DB initialization
@@ -195,14 +203,23 @@ jobs:
           script: |
             cd "$HOME/sales-funnel"
             docker compose down --remove-orphans 2>/dev/null || true
-            docker ps -q --filter "publish=8080" | xargs -r docker stop 2>/dev/null || true
-            docker ps -q --filter "publish=8082" | xargs -r docker stop 2>/dev/null || true
+            for p in 8080 8082 5050; do
+              docker ps -q --filter "publish=$p" | xargs -r docker stop 2>/dev/null || true
+            done
+            # Kill bare-metal Flask if still running from old deploy
+            if [ -f /tmp/sales-funnel-flask.pid ]; then
+              kill $(cat /tmp/sales-funnel-flask.pid) 2>/dev/null || true
+              rm -f /tmp/sales-funnel-flask.pid
+            fi
+            if lsof -iTCP:5050 -sTCP:LISTEN -t >/dev/null 2>&1; then
+              lsof -iTCP:5050 -sTCP:LISTEN -t | xargs -r kill -9 2>/dev/null || true
+            fi
             sleep 3
             docker compose build > /tmp/sf-build.log 2>&1 || { cat /tmp/sf-build.log; exit 1; }
-            docker compose up -d
+            docker compose up -d || { echo "docker compose up failed"; docker compose ps; exit 1; }
             echo "Docker deploy OK"
 
-      - name: Restart Flask app
+      - name: Verify services
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -211,21 +228,16 @@ jobs:
           command_timeout: 1m
           script: |
             cd "$HOME/sales-funnel"
-            # Kill previous Flask instance via PID file
-            if [ -f /tmp/sales-funnel-flask.pid ]; then
-              kill $(cat /tmp/sales-funnel-flask.pid) 2>/dev/null || true
-              rm -f /tmp/sales-funnel-flask.pid
-            fi
-            sleep 1
-            LOG="$HOME/sales-funnel/flask.log"
-            nohup venv/bin/python3 -c "from main import app; app.run(host='0.0.0.0', port=5050)" > "$LOG" 2>&1 &
-            echo $! > /tmp/sales-funnel-flask.pid
-            sleep 2
-            # Verify Flask is actually running
-            if kill -0 $(cat /tmp/sales-funnel-flask.pid) 2>/dev/null; then
-              echo "Flask running (PID: $(cat /tmp/sales-funnel-flask.pid))"
-            else
-              echo "Flask FAILED to start! Log:"
-              cat "$LOG"
-              exit 1
-            fi
+            sleep 5
+            docker compose ps
+            # Verify Flask health
+            for i in 1 2 3 4 5; do
+              if curl -sf http://localhost:5050/health >/dev/null 2>&1; then
+                echo "Flask healthy on :5050"
+                break
+              fi
+              echo "Waiting for Flask... ($i/5)"
+              sleep 3
+            done
+            curl -sf http://localhost:5050/health || { echo "Flask NOT healthy!"; docker compose logs flask-app --tail 20; exit 1; }
+            echo "All services OK"
