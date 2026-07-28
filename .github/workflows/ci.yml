@@ -182,7 +182,7 @@ jobs:
             [ ! -f .env.pipecat ] && cp .env.pipecat.example .env.pipecat
             python3 -m venv venv 2>/dev/null || true
             source venv/bin/activate
-            pip install -q flask requests openpyxl httpx python-dotenv gunicorn
+            pip install -q -r requirements.txt
             echo "Code updated OK"
 
       - name: Deploy Docker containers
@@ -217,6 +217,15 @@ jobs:
               rm -f /tmp/sales-funnel-flask.pid
             fi
             sleep 1
-            nohup venv/bin/python3 -c "from main import app; app.run(host='0.0.0.0', port=5050)" > /var/log/sales-funnel.log 2>&1 &
+            LOG="$HOME/sales-funnel/flask.log"
+            nohup venv/bin/python3 -c "from main import app; app.run(host='0.0.0.0', port=5050)" > "$LOG" 2>&1 &
             echo $! > /tmp/sales-funnel-flask.pid
-            echo "Flask restarted OK (PID: $(cat /tmp/sales-funnel-flask.pid))"
+            sleep 2
+            # Verify Flask is actually running
+            if kill -0 $(cat /tmp/sales-funnel-flask.pid) 2>/dev/null; then
+              echo "Flask running (PID: $(cat /tmp/sales-funnel-flask.pid))"
+            else
+              echo "Flask FAILED to start! Log:"
+              cat "$LOG"
+              exit 1
+            fi
