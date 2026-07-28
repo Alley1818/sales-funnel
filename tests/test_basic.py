@@ -29,9 +29,16 @@ def test_advanced_imports():
         auto_score_lead, batch_score_leads, schedule_callback, get_dashboard_data])
 
 
+def test_app_factory_import():
+    """Verify the app factory can be imported."""
+    from app import create_app
+    assert callable(create_app)
+
+
 @pytest.mark.integration
 def test_flask_health():
-    from main import app
+    from app import create_app
+    app = create_app()
     with app.test_client() as client:
         r = client.get("/health")
         assert r.status_code == 200
@@ -40,7 +47,8 @@ def test_flask_health():
 
 @pytest.mark.integration
 def test_flask_stats():
-    from main import app
+    from app import create_app
+    app = create_app()
     with app.test_client() as client:
         r = client.get("/api/stats")
         assert r.status_code == 200
@@ -49,7 +57,8 @@ def test_flask_stats():
 
 @pytest.mark.integration
 def test_flask_agents():
-    from main import app
+    from app import create_app
+    app = create_app()
     with app.test_client() as client:
         r = client.get("/api/agents")
         assert r.status_code == 200
@@ -58,7 +67,8 @@ def test_flask_agents():
 
 @pytest.mark.integration
 def test_flask_templates():
-    from main import app
+    from app import create_app
+    app = create_app()
     with app.test_client() as client:
         r = client.get("/api/templates")
         assert r.status_code == 200
@@ -67,7 +77,8 @@ def test_flask_templates():
 
 @pytest.mark.integration
 def test_flask_analytics():
-    from main import app
+    from app import create_app
+    app = create_app()
     with app.test_client() as client:
         r = client.get("/api/analytics/dashboard")
         assert r.status_code == 200
@@ -76,7 +87,8 @@ def test_flask_analytics():
 
 @pytest.mark.integration
 def test_flask_leads_list():
-    from main import app
+    from app import create_app
+    app = create_app()
     with app.test_client() as client:
         r = client.get("/api/leads/list?limit=5")
         assert r.status_code == 200
