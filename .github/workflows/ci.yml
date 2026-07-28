@@ -142,8 +142,10 @@ jobs:
       - name: Build asterisk Docker image
         run: docker build -t sales-funnel-asterisk ./asterisk
 
-      - name: Create .env from example
-        run: cp .env.example .env
+      - name: Create .env files from examples
+        run: |
+          cp .env.example .env
+          cp .env.pipecat.example .env.pipecat
 
       - name: Validate docker-compose
         run: docker compose config --quiet
