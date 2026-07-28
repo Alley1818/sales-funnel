@@ -186,7 +186,7 @@ jobs:
             pip install -q flask requests openpyxl httpx python-dotenv gunicorn
 
             # Docker containers
-            docker compose pull 2>/dev/null || true
+            docker compose down 2>/dev/null || true
             docker compose build
             docker compose up -d
 
