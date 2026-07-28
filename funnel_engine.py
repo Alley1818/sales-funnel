@@ -232,6 +232,8 @@ class FunnelEngine:
                 "status": call_result.status,
             })
 
+            # NOTE: In production, replace time.sleep() with a task queue
+            # (e.g. Celery, RQ) to schedule calls asynchronously.
             time.sleep(self.config.delay_between_calls_sec)
 
         return results
@@ -293,6 +295,8 @@ class FunnelEngine:
              message[:200], "sent" if result.success else "failed"),
         )
         self.conn.commit()
+        # NOTE: In production, replace time.sleep() with a task queue delay
+        # (e.g. Celery countdown) to avoid blocking the worker thread.
         time.sleep(self.config.whatsapp_delay_sec)
         return result
 
@@ -320,6 +324,8 @@ class FunnelEngine:
              "sent" if result.success else "failed"),
         )
         self.conn.commit()
+        # NOTE: In production, replace time.sleep() with a task queue delay
+        # (e.g. Celery countdown) to avoid blocking the worker thread.
         time.sleep(self.config.email_delay_sec)
         return result
 

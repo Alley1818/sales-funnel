@@ -193,5 +193,61 @@ class TechnomaxClient:
         }
 
 
+    # ---- Synchronous variants (for Flask routes) ----
+
+    def _ensure_token_sync(self, client: httpx.Client):
+        """Synchronous token refresh."""
+        if self.token and (time.time() - self.token_time) < 600:
+            return
+        r = client.post(
+            f"{BASE_URL}/iam/api/v1/auth/login",
+            json={"email": self.email, "password": self.password},
+            headers={"Origin": BASE_URL, "Referer": f"{BASE_URL}/app", "Content-Type": "application/json"},
+            timeout=15,
+        )
+        if r.status_code == 200:
+            self.token = r.json().get("token")
+            self.token_time = time.time()
+        else:
+            self.token = None
+
+    def get_autocall_tasks_sync(self, client: httpx.Client, page: int = 0, limit: int = 20) -> dict:
+        if not self.token:
+            return {"error": "auth_failed"}
+        r = client.get(
+            f"{BASE_URL}/cis/api/v1/telephony/autoCall",
+            params={"page": page, "limit": limit, "sort": "-updatedAt"},
+            headers=self._headers(),
+            timeout=15,
+        )
+        if r.status_code == 200:
+            return r.json()
+        return {"error": r.status_code, "body": r.text[:200]}
+
+    def get_autocall_detail_sync(self, client: httpx.Client, task_id: str) -> dict:
+        if not self.token:
+            return {"error": "auth_failed"}
+        r = client.get(
+            f"{BASE_URL}/cis/api/v1/telephony/autoCall/{task_id}",
+            headers=self._headers(),
+            timeout=15,
+        )
+        if r.status_code == 200:
+            return r.json()
+        return {"error": r.status_code}
+
+    def get_dashboard_data_sync(self, client: httpx.Client) -> dict:
+        tasks_result = self.get_autocall_tasks_sync(client)
+        tasks = tasks_result.get("items", []) if isinstance(tasks_result, dict) else []
+        total_calls = sum(t.get("callCount", 0) or 0 for t in tasks)
+        total_candidates = sum(t.get("candidateCount", 0) or 0 for t in tasks)
+        return {
+            "tasks": tasks[:10],
+            "task_count": len(tasks),
+            "total_calls": total_calls,
+            "total_candidates": total_candidates,
+        }
+
+
 # Singleton
 technomax = TechnomaxClient()

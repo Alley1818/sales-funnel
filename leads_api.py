@@ -6,12 +6,14 @@ import csv
 import io
 import logging
 from flask import Flask, request, jsonify
+from middleware import require_auth
 
 logger = logging.getLogger("leads_api")
 
 
 def register_leads_routes(app: Flask):
 
+    @require_auth
     @app.route("/api/leads/list")
     def leads_list():
         """Paginated, searchable, filterable leads list."""
@@ -27,9 +29,9 @@ def register_leads_routes(app: Flask):
         offset = int(request.args.get("offset", 0))
         limit = min(int(request.args.get("limit", 50)), 200)
 
-        # Validate sort column
-        allowed_sorts = {"id", "company_name", "industry", "status", "mobile"}
-        if sort not in allowed_sorts:
+        # Validate sort column — map to qualified column names to prevent SQL injection
+        sort_map = {'id': 'l.id', 'company_name': 'l.company_name', 'industry': 'l.industry', 'status': 'l.status', 'mobile': 'l.mobile'}
+        if sort not in sort_map:
             sort = "id"
         if direction not in ("ASC", "DESC"):
             direction = "DESC"
@@ -68,13 +70,14 @@ def register_leads_routes(app: Flask):
             SELECT l.*, s.score, s.category as score_category, s.reasoning
             FROM leads l LEFT JOIN lead_scores s ON l.id = s.lead_id
             WHERE {where_clause}
-            ORDER BY {sort} {direction}
+            ORDER BY {sort_map[sort]} {direction}
             LIMIT ? OFFSET ?
         """, params + [limit, offset]).fetchall()
 
         leads = [dict(r) for r in rows]
         return jsonify({"leads": leads, "total": total, "offset": offset, "limit": limit})
 
+    @require_auth
     @app.route("/api/leads/<int:lead_id>")
     def lead_detail(lead_id):
         """Get full lead detail with conversation history, sentiment, score."""
@@ -117,6 +120,7 @@ def register_leads_routes(app: Flask):
             "sentiment": sentiment,
         })
 
+    @require_auth
     @app.route("/api/leads/export")
     def leads_export():
         """Export leads as CSV-compatible JSON."""
@@ -158,6 +162,7 @@ def register_leads_routes(app: Flask):
         leads = [dict(r) for r in rows]
         return jsonify({"leads": leads})
 
+    @require_auth
     @app.route("/api/industries")
     def industries():
         """Get list of industries from the database."""

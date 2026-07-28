@@ -1,24 +1,16 @@
 """
 Advanced features: RAG, sentiment, scoring, callbacks, transfers, analytics, auth, logging.
 """
-import sqlite3
 import json
 import os
 import logging
 import hashlib
 import time
 from datetime import datetime, timedelta
-from pathlib import Path
+
+from db_conn import get_conn
 
 logger = logging.getLogger("advanced_features")
-
-DB_PATH = Path(__file__).parent / "leads.db"
-
-
-def get_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
 
 
 def init_advanced_tables():
@@ -127,7 +119,6 @@ def init_advanced_tables():
         CREATE INDEX IF NOT EXISTS idx_rate_ip ON api_rate_log(ip, called_at);
     """)
     conn.commit()
-    conn.close()
 
 
 # ==================== RAG KNOWLEDGE BASE ====================
@@ -148,7 +139,6 @@ def add_document(title: str, content: str, doc_type: str = "text", industry: str
         )
     conn.execute("UPDATE knowledge_base SET chunk_count = ? WHERE id = ?", (len(chunks), doc_id))
     conn.commit()
-    conn.close()
     return doc_id
 
 
@@ -188,14 +178,12 @@ def search_knowledge(query: str, industry: str = "", limit: int = 3) -> list[str
     q += " ORDER BY kc.chunk_index LIMIT ?"
     params.append(limit)
     rows = conn.execute(q, params).fetchall()
-    conn.close()
     return [r["content"] for r in rows]
 
 
 def get_documents() -> list[dict]:
     conn = get_conn()
     rows = conn.execute("SELECT * FROM knowledge_base ORDER BY created_at DESC").fetchall()
-    conn.close()
     return [dict(r) for r in rows]
 
 
@@ -204,7 +192,6 @@ def delete_document(doc_id: int):
     conn.execute("DELETE FROM knowledge_chunks WHERE doc_id = ?", (doc_id,))
     conn.execute("DELETE FROM knowledge_base WHERE id = ?", (doc_id,))
     conn.commit()
-    conn.close()
 
 
 def get_rag_context(query: str, industry: str = "") -> str:
@@ -272,7 +259,6 @@ def log_sentiment(lead_id: int, channel: str, message: str) -> dict:
         (lead_id, channel, message[:500], result["sentiment"], result["score"])
     )
     conn.commit()
-    conn.close()
     return result
 
 
@@ -282,7 +268,6 @@ def get_sentiment_history(lead_id: int) -> list[dict]:
         "SELECT * FROM sentiment_log WHERE lead_id = ? ORDER BY analyzed_at DESC LIMIT 20",
         (lead_id,)
     ).fetchall()
-    conn.close()
     return [dict(r) for r in rows]
 
 
@@ -364,7 +349,6 @@ def batch_score_leads(limit: int = 100) -> int:
         WHERE s.lead_id IS NULL AND l.status = 'new'
         LIMIT ?
     """, (limit,)).fetchall()
-    conn.close()
 
     scored = 0
     for lead in leads:
@@ -386,7 +370,6 @@ def schedule_callback(lead_id: int, scheduled_at: str, channel: str = "voice", n
     )
     cid = cur.lastrowid
     conn.commit()
-    conn.close()
     return cid
 
 
@@ -398,7 +381,6 @@ def get_pending_callbacks() -> list[dict]:
         WHERE cb.status = 'pending'
         ORDER BY cb.scheduled_at
     """).fetchall()
-    conn.close()
     return [dict(r) for r in rows]
 
 
@@ -406,7 +388,6 @@ def complete_callback(callback_id: int, status: str = "completed"):
     conn = get_conn()
     conn.execute("UPDATE callbacks SET status = ? WHERE id = ?", (status, callback_id))
     conn.commit()
-    conn.close()
 
 
 def get_due_callbacks() -> list[dict]:
@@ -418,7 +399,6 @@ def get_due_callbacks() -> list[dict]:
         WHERE cb.status = 'pending' AND cb.scheduled_at <= datetime('now')
         ORDER BY cb.scheduled_at
     """).fetchall()
-    conn.close()
     return [dict(r) for r in rows]
 
 
@@ -432,7 +412,6 @@ def request_transfer(lead_id: int, reason: str = "", channel: str = "voice", man
     )
     tid = cur.lastrowid
     conn.commit()
-    conn.close()
     return tid
 
 
@@ -443,7 +422,6 @@ def get_pending_transfers() -> list[dict]:
         FROM transfers t JOIN leads l ON t.lead_id = l.id
         WHERE t.status = 'pending' ORDER BY t.created_at DESC
     """).fetchall()
-    conn.close()
     return [dict(r) for r in rows]
 
 
@@ -451,7 +429,6 @@ def complete_transfer(transfer_id: int, status: str = "accepted"):
     conn = get_conn()
     conn.execute("UPDATE transfers SET status = ? WHERE id = ?", (status, transfer_id))
     conn.commit()
-    conn.close()
 
 
 # ==================== ACTION LOG ====================
@@ -463,51 +440,17 @@ def log_action(action: str, entity_type: str = "", entity_id: int = 0, details: 
         (action, entity_type, entity_id, details[:1000], ip)
     )
     conn.commit()
-    conn.close()
 
 
 def get_action_log(limit: int = 50) -> list[dict]:
     conn = get_conn()
     rows = conn.execute("SELECT * FROM action_log ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
-    conn.close()
     return [dict(r) for r in rows]
 
 
 # ==================== AUTH ====================
-
-AUTH_USER = "admin"
-AUTH_PASS = "admin123"  # Default, should be changed
-
-
-def authenticate_user(username: str, password: str) -> str | None:
-    """Authenticate and return session token."""
-    if username == AUTH_USER and password == AUTH_PASS:
-        token = hashlib.sha256(f"{username}{time.time()}".encode()).hexdigest()[:64]
-        expires = datetime.now() + timedelta(hours=24)
-        conn = get_conn()
-        conn.execute(
-            "INSERT INTO auth_sessions (token, user_name, expires_at) VALUES (?,?,?)",
-            (token, username, expires.isoformat())
-        )
-        conn.commit()
-        conn.close()
-        log_action("login", "auth", 0, f"User {username} logged in")
-        return token
-    return None
-
-
-def verify_session(token: str) -> bool:
-    if not token:
-        return False
-    conn = get_conn()
-    row = conn.execute(
-        "SELECT 1 FROM auth_sessions WHERE token = ? AND expires_at > datetime('now')",
-        (token,)
-    ).fetchone()
-    conn.close()
-    return row is not None
-
-
+# Duplicate auth removed — use middleware.verify_password + create_session instead.
+# See advanced_api.py /api/auth/login which now routes through middleware.
 # ==================== RATE LIMITING ====================
 
 RATE_LIMIT_PER_MINUTE = 60
@@ -520,7 +463,6 @@ def check_rate_limit(ip: str, endpoint: str) -> bool:
         "SELECT COUNT(*) as cnt FROM api_rate_log WHERE ip = ? AND called_at > datetime('now', '-1 minute')",
         (ip,)
     ).fetchone()
-    conn.close()
     return (row["cnt"] or 0) < RATE_LIMIT_PER_MINUTE
 
 
@@ -528,12 +470,10 @@ def record_api_call(ip: str, endpoint: str):
     conn = get_conn()
     conn.execute("INSERT INTO api_rate_log (ip, endpoint) VALUES (?,?)", (ip, endpoint))
     conn.commit()
-    conn.close()
     # Cleanup old entries
     conn = get_conn()
     conn.execute("DELETE FROM api_rate_log WHERE called_at < datetime('now', '-10 minutes')")
     conn.commit()
-    conn.close()
 
 
 # ==================== ANALYTICS ====================
@@ -608,7 +548,6 @@ def get_dashboard_data() -> dict:
     kb_count = conn.execute("SELECT COUNT(*) as cnt FROM knowledge_base").fetchone()["cnt"]
     kb_chunks = conn.execute("SELECT COUNT(*) as cnt FROM knowledge_chunks").fetchone()["cnt"]
 
-    conn.close()
 
     return {
         "status_counts": status_counts,
@@ -663,5 +602,4 @@ def get_roi_data(campaign_id: int = 0) -> dict:
             "conversion_rate": round(conversion_rate, 1),
         })
 
-    conn.close()
     return {"campaigns": results}

@@ -7,6 +7,7 @@ import os
 import sys
 import json
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from flask import Flask, request, jsonify, render_template
 
@@ -18,13 +19,27 @@ from funnel_engine import FunnelEngine, FunnelConfig, CallResult
 from whatsapp_client import WhatsAppClient, WhatsAppConfig
 from email_sender import EmailSender, EmailConfig
 
+LOG_FILE = Path(__file__).parent / "sales_funnel.log"
+
+file_handler = RotatingFileHandler(
+    str(LOG_FILE), maxBytes=10 * 1024 * 1024, backupCount=5  # 10 MB, 5 backups
+)
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s"))
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    handlers=[logging.StreamHandler(), file_handler],
 )
 logger = logging.getLogger("sales_funnel")
 
 app = Flask(__name__)
+
+
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    pass  # Connection pool handles cleanup
 
 # ---- Config file path ----
 CONFIG_FILE = Path(__file__).parent / "config.json"
@@ -103,6 +118,7 @@ def health():
     return jsonify({"status": "ok"})
 
 
+@require_auth
 @app.route("/api/stats")
 def stats():
     """Get funnel statistics."""
@@ -114,6 +130,7 @@ def stats():
     })
 
 
+@require_auth
 @app.route("/api/leads/next")
 def next_leads():
     """Get next batch of leads to call."""
@@ -124,6 +141,7 @@ def next_leads():
     return jsonify({"leads": leads, "count": len(leads)})
 
 
+@require_auth
 @app.route("/api/call/result", methods=["POST"])
 def call_result():
     """
@@ -158,6 +176,7 @@ def call_result():
     return jsonify({"actions": actions})
 
 
+@require_auth
 @app.route("/api/leads/<int:lead_id>/status", methods=["PUT"])
 def update_status(lead_id):
     """Manually update lead status."""
@@ -169,6 +188,7 @@ def update_status(lead_id):
     return jsonify({"ok": True})
 
 
+@require_auth
 @app.route("/api/whatsapp/send", methods=["POST"])
 def send_whatsapp():
     """Send WhatsApp message manually."""
@@ -187,6 +207,7 @@ def send_whatsapp():
     })
 
 
+@require_auth
 @app.route("/api/whatsapp/status")
 def whatsapp_status():
     """Get WhatsApp connection state."""
@@ -195,6 +216,7 @@ def whatsapp_status():
     return jsonify({"state": state})
 
 
+@require_auth
 @app.route("/api/whatsapp/qr")
 def whatsapp_qr():
     """Get WhatsApp QR code for connecting."""
@@ -204,6 +226,7 @@ def whatsapp_qr():
     return jsonify({"state": state, "qr": qr})
 
 
+@require_auth
 @app.route("/api/whatsapp/connect", methods=["POST"])
 def whatsapp_connect():
     """Create/initialize WhatsApp instance."""
@@ -215,6 +238,7 @@ def whatsapp_connect():
         return jsonify({"error": str(e)}), 500
 
 
+@require_auth
 @app.route("/api/whatsapp/qr-image")
 def whatsapp_qr_image():
     """Get QR code as base64 image for embedding in UI."""
@@ -228,6 +252,7 @@ def whatsapp_qr_image():
 
 # ---- SMTP Config ----
 
+@require_auth
 @app.route("/api/config/smtp", methods=["GET"])
 def get_smtp_config():
     """Get SMTP configuration (password masked)."""
@@ -242,6 +267,7 @@ def get_smtp_config():
     })
 
 
+@require_auth
 @app.route("/api/config/smtp", methods=["POST"])
 def set_smtp_config():
     """Save SMTP configuration."""
@@ -266,6 +292,7 @@ def set_smtp_config():
     return jsonify({"ok": True})
 
 
+@require_auth
 @app.route("/api/config/smtp/test", methods=["POST"])
 def test_smtp():
     """Send a test email."""
@@ -294,6 +321,7 @@ def test_smtp():
     return jsonify({"success": result.success, "error": result.error})
 
 
+@require_auth
 @app.route("/api/report")
 def report():
     """Get text funnel report."""
@@ -303,6 +331,7 @@ def report():
 
 # ---- Callbacks from Technomax AI Agent ----
 
+@require_auth
 @app.route("/api/agent/send-kp", methods=["POST"])
 def agent_send_kp():
     """Called by Technomax agent when client wants КП."""
@@ -343,7 +372,7 @@ def agent_send_kp():
             r = wa.send_text(phone, msg)
             results["whatsapp"] = "sent" if r.success else f"failed: {r.error}"
             if r.success:
-                update_lead_status(conn, lead_id, "sent_wp", "KP sent via WhatsApp by AI agent")
+                update_lead_status(conn, lead_id, "sent_wa", "KP sent via WhatsApp by AI agent")
         else:
             results["whatsapp"] = "blocked (auto_send off, Telegram notified)"
 
@@ -377,6 +406,7 @@ def agent_send_kp():
     return jsonify({"ok": True, "results": results})
 
 
+@require_auth
 @app.route("/api/agent/log-call", methods=["POST"])
 def agent_log_call():
     """Called by Technomax agent to log conversation result."""
@@ -421,28 +451,52 @@ def agent_log_call():
     return jsonify({"ok": True})
 
 
+@require_auth
 @app.route("/api/agent/create", methods=["POST"])
 def create_technomax_agent():
     """Create AI agent on Technomax platform."""
-    import asyncio
-    from technomax_agent import authenticate, create_sales_agent
+    import httpx as _httpx
+    from technomax_agent import BASE_URL, CREDENTIALS, _headers
 
     data = request.get_json() or {}
     funnel_url = data.get("funnel_url", "http://YOUR_VPS_IP:5050")
 
     try:
-        token = asyncio.run(authenticate())
-        if not token:
-            return jsonify({"error": "Auth failed"}), 401
+        with _httpx.Client(timeout=15) as _client:
+            # Authenticate
+            r = _client.post(
+                f"{BASE_URL}/iam/api/v1/auth/login",
+                json=CREDENTIALS,
+                headers={"Origin": BASE_URL, "Referer": f"{BASE_URL}/app", "Content-Type": "application/json"},
+            )
+            if r.status_code != 200:
+                return jsonify({"error": "Auth failed"}), 401
+            token = r.json().get("token")
 
-        agent = asyncio.run(create_sales_agent(token, funnel_url))
-        if agent:
-            return jsonify({"ok": True, "agent": agent})
-        return jsonify({"error": "Failed to create agent"}), 500
+            # Create agent
+            from technomax_agent import create_sales_agent
+            # Use synchronous version via httpx.Client
+            agent_config = {
+                "name": "Sales Funnel Agent",
+                "config": {
+                    "displayName": "Sales Funnel Agent",
+                    "llm": {"provider": "openrouter", "model": "xiaomi/mimo-v2.5-pro"},
+                    "tts": {"provider": "edge-tts", "voice": "ru-RU-SvetlanaNeural"},
+                },
+            }
+            r2 = _client.post(
+                f"{BASE_URL}/agent/api/v1/agents",
+                json=agent_config,
+                headers=_headers(token),
+            )
+            if r2.status_code == 200:
+                return jsonify({"ok": True, "agent": r2.json()})
+            return jsonify({"error": "Failed to create agent"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
+@require_auth
 @app.route("/api/calls/start", methods=["POST"])
 def start_ai_calls():
     """Start AI calls via Pipecat agent."""
@@ -455,6 +509,7 @@ def start_ai_calls():
     return jsonify({"calls": results, "count": len(results)})
 
 
+@require_auth
 @app.route("/api/calls/status")
 def pipecat_status():
     """Check Pipecat agent status."""
@@ -468,6 +523,7 @@ def pipecat_status():
 
 # ---- Notification Settings ----
 
+@require_auth
 @app.route("/api/config/notifications", methods=["GET"])
 def get_notifications():
     """Get notification config."""
@@ -480,6 +536,7 @@ def get_notifications():
     })
 
 
+@require_auth
 @app.route("/api/config/notifications", methods=["POST"])
 def set_notifications():
     """Update notification config."""
@@ -499,46 +556,56 @@ def set_notifications():
     return jsonify({"ok": True, "auto_send": cfg.get("auto_send", False)})
 
 
+@require_auth
 @app.route("/api/config/notifications/test", methods=["POST"])
 def test_notification():
     """Send a test Telegram notification."""
-    import asyncio
-    from telegram_notifier import send_telegram
-    ok = asyncio.run(send_telegram("<b>Test</b> — Sales Funnel Telegram notification works!"))
+    from telegram_notifier import _send_telegram_sync
+    ok = _send_telegram_sync("<b>Test</b> — Sales Funnel Telegram notification works!")
     return jsonify({"success": ok})
 
 
+@require_auth
 @app.route("/api/technomax/dashboard")
 def technomax_dashboard():
     """Get Technomax platform data: tasks, bots, agents, call stats."""
-    import asyncio
+    import httpx as _httpx
     from technomax_client import technomax
     try:
-        data = asyncio.run(technomax.get_dashboard_data())
+        # Synchronous: authenticate then fetch dashboard
+        with _httpx.Client(timeout=15) as _client:
+            technomax._ensure_token_sync(_client)
+            data = technomax.get_dashboard_data_sync(_client)
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
+@require_auth
 @app.route("/api/technomax/tasks")
 def technomax_tasks():
     """List autocall tasks from Technomax."""
-    import asyncio
+    import httpx as _httpx
     from technomax_client import technomax
     try:
-        data = asyncio.run(technomax.get_autocall_tasks())
+        with _httpx.Client(timeout=15) as _client:
+            technomax._ensure_token_sync(_client)
+            data = technomax.get_autocall_tasks_sync(_client)
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
+@require_auth
 @app.route("/api/technomax/tasks/<task_id>")
 def technomax_task_detail(task_id):
     """Get autocall task detail from Technomax."""
-    import asyncio
+    import httpx as _httpx
     from technomax_client import technomax
     try:
-        data = asyncio.run(technomax.get_autocall_detail(task_id))
+        with _httpx.Client(timeout=15) as _client:
+            technomax._ensure_token_sync(_client)
+            data = technomax.get_autocall_detail_sync(_client, task_id)
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500

@@ -194,13 +194,19 @@ def check_rate(ip: str) -> bool:
     return (row["cnt"] or 0) < RATE_LIMIT
 
 
+_rate_cleanup_counter = 0
+
 def record_rate(ip: str, endpoint: str):
+    global _rate_cleanup_counter
     conn = get_pooled_conn()
     conn.execute("INSERT INTO api_rate_log (ip, endpoint) VALUES (?,?)", (ip, endpoint))
     conn.commit()
-    # Cleanup old
-    conn.execute("DELETE FROM api_rate_log WHERE called_at < datetime('now', '-10 minutes')")
-    conn.commit()
+    # Cleanup old entries only every 100th request to reduce DB overhead
+    _rate_cleanup_counter += 1
+    if _rate_cleanup_counter >= 100:
+        conn.execute("DELETE FROM api_rate_log WHERE called_at < datetime('now', '-10 minutes')")
+        conn.commit()
+        _rate_cleanup_counter = 0
 
 
 def rate_limit_middleware():

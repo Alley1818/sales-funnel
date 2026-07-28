@@ -4,6 +4,7 @@ API endpoints for advanced features: RAG, sentiment, scoring, callbacks, transfe
 import json
 import logging
 from flask import Flask, request, jsonify, session
+from middleware import require_auth
 
 logger = logging.getLogger("advanced_api")
 
@@ -13,11 +14,13 @@ def register_advanced_routes(app: Flask):
 
     # ==================== RAG KNOWLEDGE BASE ====================
 
+    @require_auth
     @app.route("/api/knowledge", methods=["GET"])
     def list_knowledge():
         from advanced_features import get_documents
         return jsonify({"documents": get_documents()})
 
+    @require_auth
     @app.route("/api/knowledge", methods=["POST"])
     def add_knowledge():
         from advanced_features import add_document, log_action
@@ -34,6 +37,7 @@ def register_advanced_routes(app: Flask):
         log_action("knowledge_add", "knowledge", doc_id, f"Added: {data['title']}", request.remote_addr)
         return jsonify({"ok": True, "id": doc_id})
 
+    @require_auth
     @app.route("/api/knowledge/<int:doc_id>", methods=["DELETE"])
     def del_knowledge(doc_id):
         from advanced_features import delete_document, log_action
@@ -41,6 +45,7 @@ def register_advanced_routes(app: Flask):
         log_action("knowledge_delete", "knowledge", doc_id, "", request.remote_addr)
         return jsonify({"ok": True})
 
+    @require_auth
     @app.route("/api/knowledge/search", methods=["POST"])
     def search_knowledge():
         from advanced_features import search_knowledge, get_rag_context
@@ -55,11 +60,13 @@ def register_advanced_routes(app: Flask):
 
     # ==================== SENTIMENT ====================
 
+    @require_auth
     @app.route("/api/sentiment/<int:lead_id>", methods=["GET"])
     def get_sentiment(lead_id):
         from advanced_features import get_sentiment_history
         return jsonify({"history": get_sentiment_history(lead_id)})
 
+    @require_auth
     @app.route("/api/sentiment/analyze", methods=["POST"])
     def analyze():
         from advanced_features import log_sentiment
@@ -75,6 +82,7 @@ def register_advanced_routes(app: Flask):
 
     # ==================== AUTO SCORING ====================
 
+    @require_auth
     @app.route("/api/scores/batch", methods=["POST"])
     def batch_score():
         from advanced_features import batch_score_leads
@@ -85,11 +93,13 @@ def register_advanced_routes(app: Flask):
 
     # ==================== CALLBACKS ====================
 
+    @require_auth
     @app.route("/api/callbacks", methods=["GET"])
     def list_callbacks():
         from advanced_features import get_pending_callbacks
         return jsonify({"callbacks": get_pending_callbacks()})
 
+    @require_auth
     @app.route("/api/callbacks", methods=["POST"])
     def add_callback():
         from advanced_features import schedule_callback, log_action
@@ -105,6 +115,7 @@ def register_advanced_routes(app: Flask):
         log_action("callback_scheduled", "callback", cid, f"Lead {data['lead_id']}", request.remote_addr)
         return jsonify({"ok": True, "id": cid})
 
+    @require_auth
     @app.route("/api/callbacks/<int:cid>/complete", methods=["POST"])
     def complete_cb(cid):
         from advanced_features import complete_callback
@@ -112,6 +123,7 @@ def register_advanced_routes(app: Flask):
         complete_callback(cid, data.get("status", "completed"))
         return jsonify({"ok": True})
 
+    @require_auth
     @app.route("/api/callbacks/due", methods=["GET"])
     def due_callbacks():
         from advanced_features import get_due_callbacks
@@ -119,11 +131,13 @@ def register_advanced_routes(app: Flask):
 
     # ==================== TRANSFERS ====================
 
+    @require_auth
     @app.route("/api/transfers", methods=["GET"])
     def list_transfers():
         from advanced_features import get_pending_transfers
         return jsonify({"transfers": get_pending_transfers()})
 
+    @require_auth
     @app.route("/api/transfers", methods=["POST"])
     def add_transfer():
         from advanced_features import request_transfer, log_action
@@ -140,6 +154,7 @@ def register_advanced_routes(app: Flask):
         log_action("transfer_requested", "transfer", tid, f"Lead {data['lead_id']}", request.remote_addr)
         return jsonify({"ok": True, "id": tid})
 
+    @require_auth
     @app.route("/api/transfers/<int:tid>/accept", methods=["POST"])
     def accept_transfer(tid):
         from advanced_features import complete_transfer
@@ -148,11 +163,13 @@ def register_advanced_routes(app: Flask):
 
     # ==================== ANALYTICS ====================
 
+    @require_auth
     @app.route("/api/analytics/dashboard", methods=["GET"])
     def analytics_dashboard():
         from advanced_features import get_dashboard_data
         return jsonify(get_dashboard_data())
 
+    @require_auth
     @app.route("/api/analytics/roi", methods=["GET"])
     def analytics_roi():
         from advanced_features import get_roi_data
@@ -163,15 +180,19 @@ def register_advanced_routes(app: Flask):
 
     @app.route("/api/auth/login", methods=["POST"])
     def login():
-        from advanced_features import authenticate_user
+        from middleware import verify_password, create_session, log_api_action
         data = request.get_json() or {}
-        token = authenticate_user(data.get("username", ""), data.get("password", ""))
-        if token:
+        username = data.get("username", "")
+        password = data.get("password", "")
+        if verify_password(username, password):
+            token = create_session(username)
+            log_api_action("login", "auth", 0, f"User {username} logged in")
             return jsonify({"ok": True, "token": token})
         return jsonify({"error": "Invalid credentials"}), 401
 
     # ==================== ACTION LOG ====================
 
+    @require_auth
     @app.route("/api/action-log", methods=["GET"])
     def action_log():
         from advanced_features import get_action_log
@@ -180,6 +201,7 @@ def register_advanced_routes(app: Flask):
 
     # ==================== AUTO-SCORE ALL LEADS ====================
 
+    @require_auth
     @app.route("/api/scores/auto-score-all", methods=["POST"])
     def auto_score_all():
         from advanced_features import batch_score_leads

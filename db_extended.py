@@ -1,20 +1,11 @@
 """
 Extended database schema for all sales funnel features.
 """
-import sqlite3
 import logging
-from pathlib import Path
+
+from db_conn import get_conn
 
 logger = logging.getLogger("db_extended")
-
-DB_PATH = Path(__file__).parent / "leads.db"
-
-
-def get_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys=ON")
-    return conn
 
 
 def init_extended_tables():
@@ -156,7 +147,6 @@ def init_extended_tables():
         CREATE INDEX IF NOT EXISTS idx_rate_limit_channel ON rate_limit_log(channel, sent_at);
     """)
     conn.commit()
-    conn.close()
     logger.info("Extended tables initialized")
 
 

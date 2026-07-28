@@ -5,6 +5,7 @@ Mounted on the main Flask app.
 import json
 import logging
 from flask import Flask, request, jsonify
+from middleware import require_auth
 
 logger = logging.getLogger("features_api")
 
@@ -14,11 +15,13 @@ def register_feature_routes(app: Flask):
 
     # ==================== AI AGENTS ====================
 
+    @require_auth
     @app.route("/api/agents", methods=["GET"])
     def list_agents():
         from funnel_features import get_agents
         return jsonify({"agents": get_agents()})
 
+    @require_auth
     @app.route("/api/agents", methods=["POST"])
     def create_agent():
         from funnel_features import create_agent
@@ -37,6 +40,7 @@ def register_feature_routes(app: Flask):
         )
         return jsonify({"ok": True, "id": aid})
 
+    @require_auth
     @app.route("/api/agents/<int:agent_id>", methods=["GET"])
     def get_agent(agent_id):
         from funnel_features import get_agents
@@ -46,6 +50,7 @@ def register_feature_routes(app: Flask):
                 return jsonify(a)
         return jsonify({"error": "Not found"}), 404
 
+    @require_auth
     @app.route("/api/agents/<int:agent_id>", methods=["PUT"])
     def update_agent(agent_id):
         from funnel_features import update_agent
@@ -53,6 +58,7 @@ def register_feature_routes(app: Flask):
         ok = update_agent(agent_id, **data)
         return jsonify({"ok": ok})
 
+    @require_auth
     @app.route("/api/agents/<int:agent_id>", methods=["DELETE"])
     def delete_agent(agent_id):
         from funnel_features import delete_agent
@@ -61,6 +67,7 @@ def register_feature_routes(app: Flask):
 
     # ==================== MESSAGE TEMPLATES ====================
 
+    @require_auth
     @app.route("/api/templates", methods=["GET"])
     def list_templates():
         from funnel_features import get_templates
@@ -68,6 +75,7 @@ def register_feature_routes(app: Flask):
         channel = request.args.get("channel", "")
         return jsonify({"templates": get_templates(industry, channel)})
 
+    @require_auth
     @app.route("/api/templates", methods=["POST"])
     def create_template():
         from funnel_features import create_template
@@ -85,6 +93,7 @@ def register_feature_routes(app: Flask):
         )
         return jsonify({"ok": True, "id": tid})
 
+    @require_auth
     @app.route("/api/templates/<int:tid>", methods=["PUT"])
     def update_template(tid):
         from funnel_features import update_template
@@ -92,6 +101,7 @@ def register_feature_routes(app: Flask):
         ok = update_template(tid, **data)
         return jsonify({"ok": ok})
 
+    @require_auth
     @app.route("/api/templates/<int:tid>", methods=["DELETE"])
     def delete_template(tid):
         from funnel_features import delete_template
@@ -100,11 +110,13 @@ def register_feature_routes(app: Flask):
 
     # ==================== DO NOT CALL ====================
 
+    @require_auth
     @app.route("/api/dnc", methods=["GET"])
     def list_dnc():
         from funnel_features import get_dnc_list
         return jsonify({"dnc": get_dnc_list()})
 
+    @require_auth
     @app.route("/api/dnc", methods=["POST"])
     def add_dnc():
         from funnel_features import add_dnc
@@ -115,6 +127,7 @@ def register_feature_routes(app: Flask):
         ok = add_dnc(phone, data.get("reason", ""))
         return jsonify({"ok": ok})
 
+    @require_auth
     @app.route("/api/dnc/<phone>", methods=["DELETE"])
     def remove_dnc(phone):
         from funnel_features import remove_dnc
@@ -123,6 +136,7 @@ def register_feature_routes(app: Flask):
 
     # ==================== LEAD SCORING ====================
 
+    @require_auth
     @app.route("/api/scores", methods=["GET"])
     def list_scores():
         from funnel_features import get_leads_by_score
@@ -130,12 +144,14 @@ def register_feature_routes(app: Flask):
         min_score = int(request.args.get("min_score", 0))
         return jsonify({"leads": get_leads_by_score(category, min_score)})
 
+    @require_auth
     @app.route("/api/scores/<int:lead_id>", methods=["GET"])
     def get_score(lead_id):
         from funnel_features import get_lead_score
         score = get_lead_score(lead_id)
         return jsonify(score or {"score": 0, "category": "unscored"})
 
+    @require_auth
     @app.route("/api/scores/<int:lead_id>", methods=["POST"])
     def set_score(lead_id):
         from funnel_features import score_lead
@@ -145,11 +161,13 @@ def register_feature_routes(app: Flask):
 
     # ==================== CAMPAIGNS ====================
 
+    @require_auth
     @app.route("/api/campaigns", methods=["GET"])
     def list_campaigns():
         from funnel_features import get_campaigns
         return jsonify({"campaigns": get_campaigns()})
 
+    @require_auth
     @app.route("/api/campaigns", methods=["POST"])
     def create_campaign():
         from funnel_features import create_campaign
@@ -169,12 +187,14 @@ def register_feature_routes(app: Flask):
         )
         return jsonify({"ok": True, "id": cid})
 
+    @require_auth
     @app.route("/api/campaigns/<int:cid>", methods=["DELETE"])
     def delete_campaign(cid):
         from funnel_features import delete_campaign
         delete_campaign(cid)
         return jsonify({"ok": True})
 
+    @require_auth
     @app.route("/api/campaigns/<int:cid>/leads", methods=["POST"])
     def add_campaign_leads(cid):
         from funnel_features import add_leads_to_campaign
@@ -183,18 +203,21 @@ def register_feature_routes(app: Flask):
         added = add_leads_to_campaign(cid, lead_ids)
         return jsonify({"ok": True, "added": added})
 
+    @require_auth
     @app.route("/api/campaigns/<int:cid>/leads", methods=["GET"])
     def get_campaign_leads(cid):
         from funnel_features import get_campaign_leads
         status = request.args.get("status", "")
         return jsonify({"leads": get_campaign_leads(cid, status)})
 
+    @require_auth
     @app.route("/api/campaigns/<int:cid>/start", methods=["POST"])
     def start_campaign(cid):
         from funnel_features import update_campaign_status
         update_campaign_status(cid, "running")
         return jsonify({"ok": True})
 
+    @require_auth
     @app.route("/api/campaigns/<int:cid>/pause", methods=["POST"])
     def pause_campaign(cid):
         from funnel_features import update_campaign_status
@@ -203,11 +226,13 @@ def register_feature_routes(app: Flask):
 
     # ==================== A/B TESTS ====================
 
+    @require_auth
     @app.route("/api/ab-tests", methods=["GET"])
     def list_ab_tests():
         from funnel_features import get_ab_tests
         return jsonify({"tests": get_ab_tests()})
 
+    @require_auth
     @app.route("/api/ab-tests", methods=["POST"])
     def create_ab_test():
         from funnel_features import create_ab_test
@@ -219,11 +244,13 @@ def register_feature_routes(app: Flask):
 
     # ==================== CPS / RATE LIMITING ====================
 
+    @require_auth
     @app.route("/api/config/cps", methods=["GET"])
     def get_cps():
         from funnel_features import CPS_LIMIT
         return jsonify({"cps": CPS_LIMIT})
 
+    @require_auth
     @app.route("/api/config/cps", methods=["POST"])
     def set_cps():
         import funnel_features
@@ -233,6 +260,7 @@ def register_feature_routes(app: Flask):
 
     # ==================== WHATSAPP INBOX ====================
 
+    @require_auth
     @app.route("/api/wa/inbox", methods=["GET"])
     def wa_inbox():
         from funnel_features import get_unreplied_wa
@@ -268,6 +296,7 @@ def register_feature_routes(app: Flask):
 
     # ==================== BITRIX24 ====================
 
+    @require_auth
     @app.route("/api/config/bitrix", methods=["GET"])
     def get_bitrix():
         cfg = {}
@@ -284,6 +313,7 @@ def register_feature_routes(app: Flask):
             "configured": bool(cfg.get("portal")),
         })
 
+    @require_auth
     @app.route("/api/config/bitrix", methods=["POST"])
     def set_bitrix():
         from pathlib import Path
@@ -299,6 +329,7 @@ def register_feature_routes(app: Flask):
         p.write_text(json.dumps(full, indent=2, ensure_ascii=False))
         return jsonify({"ok": True})
 
+    @require_auth
     @app.route("/api/bitrix/sync", methods=["POST"])
     def bitrix_sync():
         """Sync leads to Bitrix24 as contacts/deals."""

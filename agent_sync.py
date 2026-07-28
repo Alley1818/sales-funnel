@@ -2,22 +2,14 @@
 Unified AI Agent — syncs voice calls and WhatsApp conversations per lead.
 Single source of truth: each lead has a conversation history across all channels.
 """
-import sqlite3
 import json
 import logging
 import time
 from datetime import datetime
-from pathlib import Path
+
+from db_conn import get_conn
 
 logger = logging.getLogger("agent_sync")
-
-DB_PATH = Path(__file__).parent / "leads.db"
-
-
-def get_conn():
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    return conn
 
 
 def init_sync_tables():
@@ -50,7 +42,6 @@ def init_sync_tables():
         CREATE INDEX IF NOT EXISTS idx_conv_channel ON conversations(channel);
     """)
     conn.commit()
-    conn.close()
 
 
 # ---- Conversation Logging ----
@@ -72,7 +63,6 @@ def log_message(lead_id: int, channel: str, direction: str, content: str, metada
             updated_at = CURRENT_TIMESTAMP
     """, (lead_id, channel))
     conn.commit()
-    conn.close()
 
 
 def get_conversation_history(lead_id: int, limit: int = 20) -> list[dict]:
@@ -82,7 +72,6 @@ def get_conversation_history(lead_id: int, limit: int = 20) -> list[dict]:
         "SELECT * FROM conversations WHERE lead_id = ? ORDER BY created_at DESC LIMIT ?",
         (lead_id, limit),
     ).fetchall()
-    conn.close()
     return [dict(r) for r in reversed(rows)]
 
 
@@ -91,7 +80,6 @@ def get_lead_context(lead_id: int) -> dict:
     conn = get_conn()
     row = conn.execute("SELECT * FROM lead_context WHERE lead_id = ?", (lead_id,)).fetchone()
     lead = conn.execute("SELECT * FROM leads WHERE id = ?", (lead_id,)).fetchone()
-    conn.close()
 
     ctx = dict(row) if row else {}
     if lead:
@@ -123,7 +111,6 @@ def update_lead_context(lead_id: int, **kwargs):
         values,
     )
     conn.commit()
-    conn.close()
 
 
 # ---- AI Agent Prompt Builder ----

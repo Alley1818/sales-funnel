@@ -2,22 +2,14 @@
 Business logic for all sales funnel features.
 Agents per industry, templates, DNC, scoring, campaigns, A/B tests, CPS.
 """
-import sqlite3
 import json
 import logging
 import time
 from datetime import datetime
-from pathlib import Path
+
+from db_conn import get_conn
 
 logger = logging.getLogger("funnel_features")
-
-DB_PATH = Path(__file__).parent / "leads.db"
-
-
-def get_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
 
 
 # ==================== AI AGENTS ====================
@@ -36,21 +28,18 @@ def create_agent(name: str, industry: str, prompt: str = "", **kwargs) -> int:
     )
     conn.commit()
     agent_id = cur.lastrowid
-    conn.close()
     return agent_id
 
 
 def get_agents() -> list[dict]:
     conn = get_conn()
     rows = conn.execute("SELECT * FROM ai_agents ORDER BY industry").fetchall()
-    conn.close()
     return [dict(r) for r in rows]
 
 
 def get_agent_by_industry(industry: str) -> dict | None:
     conn = get_conn()
     row = conn.execute("SELECT * FROM ai_agents WHERE industry = ? AND enabled = 1", (industry,)).fetchone()
-    conn.close()
     return dict(row) if row else None
 
 
@@ -64,7 +53,6 @@ def update_agent(agent_id: int, **kwargs) -> bool:
     values = list(updates.values()) + [agent_id]
     conn.execute(f"UPDATE ai_agents SET {set_clause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?", values)
     conn.commit()
-    conn.close()
     return True
 
 
@@ -72,7 +60,6 @@ def delete_agent(agent_id: int) -> bool:
     conn = get_conn()
     conn.execute("DELETE FROM ai_agents WHERE id = ?", (agent_id,))
     conn.commit()
-    conn.close()
     return True
 
 
@@ -88,7 +75,6 @@ def create_template(name: str, industry: str, channel: str, body: str, **kwargs)
     )
     conn.commit()
     tid = cur.lastrowid
-    conn.close()
     return tid
 
 
@@ -104,7 +90,6 @@ def get_templates(industry: str = "", channel: str = "") -> list[dict]:
         params.append(channel)
     q += " ORDER BY is_default DESC, industry, name"
     rows = conn.execute(q, params).fetchall()
-    conn.close()
     return [dict(r) for r in rows]
 
 
@@ -113,7 +98,6 @@ def get_template_for_lead(lead_id: int, channel: str) -> dict | None:
     conn = get_conn()
     lead = conn.execute("SELECT * FROM leads WHERE id = ?", (lead_id,)).fetchone()
     if not lead:
-        conn.close()
         return None
     industry = lead.get("industry", "")
     # Try industry-specific first, then default
@@ -129,7 +113,6 @@ def get_template_for_lead(lead_id: int, channel: str) -> dict | None:
             "SELECT * FROM message_templates WHERE channel = ? AND is_default = 1 LIMIT 1",
             (channel,)
         ).fetchone()
-    conn.close()
     return dict(row) if row else None
 
 
@@ -143,7 +126,6 @@ def update_template(template_id: int, **kwargs) -> bool:
     values = list(updates.values()) + [template_id]
     conn.execute(f"UPDATE message_templates SET {set_clause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?", values)
     conn.commit()
-    conn.close()
     return True
 
 
@@ -151,7 +133,6 @@ def delete_template(template_id: int) -> bool:
     conn = get_conn()
     conn.execute("DELETE FROM message_templates WHERE id = ?", (template_id,))
     conn.commit()
-    conn.close()
     return True
 
 
@@ -162,24 +143,20 @@ def add_dnc(phone: str, reason: str = "") -> bool:
     try:
         conn.execute("INSERT OR IGNORE INTO do_not_call (phone, reason) VALUES (?, ?)", (phone, reason))
         conn.commit()
-        conn.close()
         return True
     except Exception:
-        conn.close()
         return False
 
 
 def is_dnc(phone: str) -> bool:
     conn = get_conn()
     row = conn.execute("SELECT 1 FROM do_not_call WHERE phone = ?", (phone,)).fetchone()
-    conn.close()
     return row is not None
 
 
 def get_dnc_list() -> list[dict]:
     conn = get_conn()
     rows = conn.execute("SELECT * FROM do_not_call ORDER BY added_at DESC").fetchall()
-    conn.close()
     return [dict(r) for r in rows]
 
 
@@ -187,7 +164,6 @@ def remove_dnc(phone: str) -> bool:
     conn = get_conn()
     conn.execute("DELETE FROM do_not_call WHERE phone = ?", (phone,))
     conn.commit()
-    conn.close()
     return True
 
 
@@ -205,13 +181,11 @@ def score_lead(lead_id: int, score: int, category: str, reasoning: str = ""):
             scored_at = CURRENT_TIMESTAMP
     """, (lead_id, score, category, reasoning))
     conn.commit()
-    conn.close()
 
 
 def get_lead_score(lead_id: int) -> dict | None:
     conn = get_conn()
     row = conn.execute("SELECT * FROM lead_scores WHERE lead_id = ?", (lead_id,)).fetchone()
-    conn.close()
     return dict(row) if row else None
 
 
@@ -229,7 +203,6 @@ def get_leads_by_score(category: str = "", min_score: int = 0) -> list[dict]:
         params.append(min_score)
     q += " ORDER BY COALESCE(s.score, 0) DESC"
     rows = conn.execute(q, params).fetchall()
-    conn.close()
     return [dict(r) for r in rows]
 
 
@@ -247,7 +220,6 @@ def create_campaign(name: str, **kwargs) -> int:
     )
     conn.commit()
     cid = cur.lastrowid
-    conn.close()
     return cid
 
 
@@ -260,7 +232,6 @@ def get_campaigns() -> list[dict]:
                (SELECT COUNT(*) FROM campaign_leads cl WHERE cl.campaign_id = c.id AND cl.status = 'pending') as pending_leads
         FROM campaigns c ORDER BY c.created_at DESC
     """).fetchall()
-    conn.close()
     return [dict(r) for r in rows]
 
 
@@ -277,7 +248,6 @@ def add_leads_to_campaign(campaign_id: int, lead_ids: list[int]) -> int:
         except Exception:
             pass
     conn.commit()
-    conn.close()
     return added
 
 
@@ -292,7 +262,6 @@ def get_campaign_leads(campaign_id: int, status: str = "") -> list[dict]:
         params.append(status)
     q += " ORDER BY cl.id"
     rows = conn.execute(q, params).fetchall()
-    conn.close()
     return [dict(r) for r in rows]
 
 
@@ -303,7 +272,6 @@ def update_campaign_lead_status(campaign_id: int, lead_id: int, status: str, res
         (status, result, campaign_id, lead_id)
     )
     conn.commit()
-    conn.close()
 
 
 def update_campaign_status(campaign_id: int, status: str):
@@ -315,7 +283,6 @@ def update_campaign_status(campaign_id: int, status: str):
     else:
         conn.execute("UPDATE campaigns SET status = ? WHERE id = ?", (status, campaign_id))
     conn.commit()
-    conn.close()
 
 
 def delete_campaign(campaign_id: int):
@@ -323,7 +290,6 @@ def delete_campaign(campaign_id: int):
     conn.execute("DELETE FROM campaign_leads WHERE campaign_id = ?", (campaign_id,))
     conn.execute("DELETE FROM campaigns WHERE id = ?", (campaign_id,))
     conn.commit()
-    conn.close()
 
 
 # ==================== A/B TESTING ====================
@@ -336,7 +302,6 @@ def create_ab_test(name: str, template_a_id: int, template_b_id: int) -> int:
     )
     conn.commit()
     tid = cur.lastrowid
-    conn.close()
     return tid
 
 
@@ -351,7 +316,6 @@ def get_ab_tests() -> list[dict]:
         LEFT JOIN message_templates tb ON t.template_b_id = tb.id
         ORDER BY t.created_at DESC
     """).fetchall()
-    conn.close()
     return [dict(r) for r in rows]
 
 
@@ -360,11 +324,9 @@ def pick_ab_variant(test_id: int) -> str:
     conn = get_conn()
     test = conn.execute("SELECT * FROM ab_tests WHERE id = ?", (test_id,)).fetchone()
     if not test:
-        conn.close()
         return "A"
     total_a = test["sent_a"] or 0
     total_b = test["sent_b"] or 0
-    conn.close()
     return "A" if total_a <= total_b else "B"
 
 
@@ -379,7 +341,6 @@ def record_ab_result(test_id: int, variant: str, responded: bool = False):
         if responded:
             conn.execute("UPDATE ab_tests SET response_b = response_b + 1 WHERE id = ?", (test_id,))
     conn.commit()
-    conn.close()
 
 
 # ==================== CPS RATE LIMITING ====================
@@ -394,7 +355,6 @@ def can_send(channel: str, cps: int = CPS_LIMIT) -> bool:
         "SELECT COUNT(*) as cnt FROM rate_limit_log WHERE channel = ? AND sent_at > datetime('now', '-1 second')",
         (channel,)
     ).fetchone()
-    conn.close()
     return (row["cnt"] or 0) < cps
 
 
@@ -406,12 +366,10 @@ def record_send(channel: str, phone: str):
         (channel, phone)
     )
     conn.commit()
-    conn.close()
     # Cleanup old entries (keep last 5 minutes)
     conn = get_conn()
     conn.execute("DELETE FROM rate_limit_log WHERE sent_at < datetime('now', '-5 minutes')")
     conn.commit()
-    conn.close()
 
 
 # ==================== INCOMING WHATSAPP ====================
@@ -424,7 +382,6 @@ def log_incoming_wa(phone: str, message: str) -> int:
     )
     conn.commit()
     mid = cur.lastrowid
-    conn.close()
     return mid
 
 
@@ -433,7 +390,6 @@ def get_unreplied_wa() -> list[dict]:
     rows = conn.execute(
         "SELECT * FROM wa_inbox WHERE replied = 0 ORDER BY created_at"
     ).fetchall()
-    conn.close()
     return [dict(r) for r in rows]
 
 
@@ -444,7 +400,6 @@ def mark_wa_replied(msg_id: int, reply_text: str):
         (reply_text, msg_id)
     )
     conn.commit()
-    conn.close()
 
 
 # ==================== DEFAULT TEMPLATES ====================
@@ -498,7 +453,6 @@ def seed_default_templates():
     conn = get_conn()
     count = conn.execute("SELECT COUNT(*) as cnt FROM message_templates").fetchone()["cnt"]
     if count > 0:
-        conn.close()
         return
     for t in DEFAULT_TEMPLATES:
         conn.execute(
@@ -507,5 +461,4 @@ def seed_default_templates():
             (t["name"], t["industry"], t["channel"], t["subject"], t["body"], t["is_default"])
         )
     conn.commit()
-    conn.close()
     logger.info("Seeded %d default templates", len(DEFAULT_TEMPLATES))
