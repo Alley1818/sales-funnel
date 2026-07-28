@@ -71,6 +71,7 @@ def _make_conn(tmp_path):
             direction TEXT NOT NULL,
             content TEXT NOT NULL,
             metadata TEXT DEFAULT '{}',
+            event_type TEXT DEFAULT 'message',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         CREATE TABLE lead_context (
