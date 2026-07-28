@@ -83,6 +83,7 @@ def get_lead_context(lead_id: int) -> dict:
 
     ctx = dict(row) if row else {}
     if lead:
+        lead = dict(lead)
         ctx["company_name"] = lead["company_name"]
         ctx["industry"] = lead.get("industry", "")
         ctx["phone"] = lead.get("mobile", "")
@@ -115,10 +116,41 @@ def update_lead_context(lead_id: int, **kwargs):
 
 # ---- AI Agent Prompt Builder ----
 
+# Objection handling playbook
+OBJECTION_PLAYBOOK = {
+    "дорого": "Объясните ценность ROI. Сравните с текущими затратами на ручной труд. Предложите pilot-проект.",
+    "не нужно": "Уточните текущие процессы. Покажите, как AI экономит время. Предложите бесплатную демонстрацию.",
+    "нет времени": "Предложите короткий звонок 5 минут. Отправьте КП в WhatsApp для ознакомления в удобное время.",
+    "нет бюджета": "Предложите гибкую тарификацию. Объясните окупаемость. Предложите начать с пилотного проекта.",
+    "не работаем с AI": "Приведите примеры конкурентов из той же отрасли. Объясните простоту внедрения.",
+    "уже есть решение": "Уточните, что устраивает, а что нет. Покажите дополнительные возможности Technomax.",
+    "подумаю": "Предложите отправить подробное КП. Запланируйте повторный звонок через 3 дня.",
+}
+
+# Interest-based strategy
+STRATEGY_EDUCATE = """СТРАТЕГИЯ: Обучение (низкий интерес)
+- Расскажите о возможностях AI в отрасли клиента
+- Приведите конкретные примеры и кейсы
+- Не давите на продажу — формируйте осведомлённость
+- Предложите отправить обзорную информацию"""
+
+STRATEGY_NURTURE = """СТРАТЕГИЯ: Развитие интереса (средний интерес)
+- Сфокусируйтесь на конкретных болевых точках клиента
+- Покажите, как Technomax решает именно их проблемы
+- Предложите бесплатную демонстрацию
+- Отправьте КП с кейсами из отрасли"""
+
+STRATEGY_CLOSE = """СТРАТЕГИЯ: Закрытие (высокий интерес)
+- Предложите конкретные следующие шаги (демо, пилот, договор)
+- Создайте срочность (ограниченные условия, слоты)
+- Запланируйте встречу или звонок с менеджером
+- Отправьте КП немедленно"""
+
+
 def build_agent_prompt(lead_id: int, channel: str = "voice") -> str:
     """
     Build a context-aware prompt for the AI agent.
-    Includes conversation history from ALL channels.
+    Includes: conversation history, RAG context, sentiment, objection playbook, interest strategy.
     """
     ctx = get_lead_context(lead_id)
     history = get_conversation_history(lead_id)
@@ -130,29 +162,75 @@ def build_agent_prompt(lead_id: int, channel: str = "voice") -> str:
     objections = ctx.get("objections", "[]")
     needs = ctx.get("needs", "[]")
 
-    # Build history text
+    # --- RAG context ---
+    from advanced_features import get_rag_context
+    rag_query = f"{company} {industry}"
+    rag_context = get_rag_context(rag_query, industry)
+
+    # --- Sentiment overlay ---
+    sentiment_instruction = ""
+    if history:
+        from advanced_features import analyze_sentiment
+        last_msgs = [m for m in history if m["direction"] == "inbound"]
+        if last_msgs:
+            last_sentiment = analyze_sentiment(last_msgs[-1]["content"])
+            if last_sentiment["sentiment"] == "angry":
+                sentiment_instruction = """
+ВНИМАНИЕ: Клиент раздражён. Будьте максимально вежливы.
+Извинитесь за беспокойство. Предложите отказаться от контакта если не интересно.
+Не давите. Спокойный, уважительный тон."""
+            elif last_sentiment["sentiment"] == "negative":
+                sentiment_instruction = """
+ВНИМАНИЕ: Клиент настроен скептически. Не давите.
+Выслушайте возражения. Предложите альтернативы."""
+            elif last_sentiment["sentiment"] == "positive":
+                sentiment_instruction = """
+Клиент настроен позитивно. Используйте момент для предложения конкретных шагов."""
+
+    # --- Interest-based strategy ---
+    if interest <= 3:
+        strategy = STRATEGY_EDUCATE
+    elif interest <= 6:
+        strategy = STRATEGY_NURTURE
+    else:
+        strategy = STRATEGY_CLOSE
+
+    # --- Build history text ---
     history_text = ""
     if history:
         history_text = "\nИСТОРИЯ ОБЩЕНИЯ:\n"
-        for msg in history:
+        for msg in history[-8:]:  # Last 8 messages only
             ch = msg["channel"]
             direction = "Клиент" if msg["direction"] == "inbound" else "Агент"
             history_text += f"[{ch}] {direction}: {msg['content'][:200]}\n"
 
-    # Channel-specific instructions
+    # --- Channel-specific instructions ---
     channel_instructions = ""
     if channel == "voice":
         channel_instructions = """
 Вы звоните по телефону. Говорите кратко, ясно, по делу.
 Не повторяйтесь. Завершите разговор за 1-2 минуты.
-Если клиент заинтересован — скажите что отправите информацию в WhatsApp.
-"""
+Если клиент заинтересован — скажите что отправите информацию в WhatsApp."""
     elif channel == "whatsapp":
         channel_instructions = """
 Вы пишете в WhatsApp. Используйте короткие сообщения.
-Можно использовать эмодзи умеренно. Отвечайте быстро.
-Если клиент просит КП — отправьте. Если звонок нужен — запланируйте.
-"""
+Отвечайте быстро. Если клиент просит КП — отправьте.
+Если звонок нужен — запланируйте."""
+
+    # --- Objection handling ---
+    objection_text = ""
+    if objections and objections != "[]":
+        objection_text = "\nВОЗРАЖЕНИЯ КЛИЕНТА:\n"
+        import json
+        try:
+            obj_list = json.loads(objections) if isinstance(objections, str) else objections
+        except (json.JSONDecodeError, TypeError):
+            obj_list = [str(objections)]
+        for obj in obj_list:
+            objection_text += f"- {obj}\n"
+            for key, advice in OBJECTION_PLAYBOOK.items():
+                if key in str(obj).lower():
+                    objection_text += f"  Рекомендация: {advice}\n"
 
     return f"""Вы — AI-ассистент компании Technomax.
 Вы общаетесь с компанией "{company}" из отрасли "{industry}".
@@ -160,11 +238,15 @@ def build_agent_prompt(lead_id: int, channel: str = "voice") -> str:
 ТЕКУЩЕЕ СОСТОЯНИЕ:
 - Стадия: {stage}
 - Интерес клиента: {interest}/10
-- Возражения: {objections}
 - Потребности: {needs}
 - Канал: {channel}
 
+{strategy}
+
 {channel_instructions}
+{sentiment_instruction}
+{objection_text}
+{rag_context}
 {history_text}
 
 ПРАВИЛА:
@@ -173,6 +255,7 @@ def build_agent_prompt(lead_id: int, channel: str = "voice") -> str:
 3. Если клиент уже отказался — не давите
 4. Если клиент заинтересован — предлагайте конкретные следующие шаги
 5. Всегда записывайте результат разговора
+6. Используйте информацию из базы знаний для аргументов
 
 Отвечайте кратко и по делу."""
 
@@ -182,6 +265,9 @@ def build_agent_prompt(lead_id: int, channel: str = "voice") -> str:
 def sync_after_call(lead_id: int, result: str, transcript: str):
     """After a voice call, sync to WhatsApp if needed."""
     log_message(lead_id, "voice", "outbound", transcript[:500], {"result": result})
+
+    # Extract entities from transcript
+    extract_entities(lead_id, transcript)
 
     if result == "interested":
         update_lead_context(lead_id, stage="interested", interest_level=7, next_action="send_whatsapp_kp")
@@ -198,6 +284,10 @@ def sync_after_whatsapp(lead_id: int, message: str, is_inbound: bool = False):
     direction = "inbound" if is_inbound else "outbound"
     log_message(lead_id, "whatsapp", direction, message[:500])
 
+    # Extract entities from inbound messages
+    if is_inbound:
+        extract_entities(lead_id, message)
+
     if is_inbound:
         # Analyze message for interest signals
         lower = message.lower()
@@ -205,6 +295,169 @@ def sync_after_whatsapp(lead_id: int, message: str, is_inbound: bool = False):
             update_lead_context(lead_id, stage="interested", interest_level=8)
         elif any(w in lower for w in ["отказ", "не надо", "не интересно", "stop"]):
             update_lead_context(lead_id, stage="lost", interest_level=0)
+
+    # Auto-summarize if enough messages accumulated
+    _maybe_summarize(lead_id)
+
+
+# ---- Entity Extraction ----
+
+ENTITY_PATTERNS = {
+    "budget": [
+        r"(?:бюджет|budget|стоимость|цена|price|тариф)\s*[:=]?\s*(\d[\d\s]*(?:тенге|KZT|₸|руб|USD|\$)?)",
+        r"(\d[\d\s]*(?:тенге|KZT|₸|руб|USD|\$))\s*(?:в месяц|в год|мес|год)",
+    ],
+    "decision_maker": [
+        r"(?:решает|директор|руководитель|CEO|CTO|owner|владелец|генеральный)\s*[:=]?\s*(\w+)",
+        r"(?:имя|зовут|contact)\s*[:=]?\s*(\w+)",
+    ],
+    "timeline": [
+        r"(?:срок|когда|дата|timeline|дедлайн|deadline)\s*[:=]?\s*(.+?)(?:\.|,|$)",
+        r"(?:через|в течение|на следующей)\s+(.+?)(?:\.|,|$)",
+    ],
+    "pain_points": [
+        r"(?:проблема|сложно|слышность|pain|issue)\s*[:=]?\s*(.+?)(?:\.|,|$)",
+        r"(?:не хватает|нет|отсутствует)\s+(.+?)(?:\.|,|$)",
+    ],
+}
+
+
+def extract_entities(lead_id: int, text: str):
+    """Extract structured entities from conversation text."""
+    import re
+    text_lower = text.lower()
+
+    updates = {}
+    for entity, patterns in ENTITY_PATTERNS.items():
+        for pattern in patterns:
+            match = re.search(pattern, text_lower)
+            if match:
+                value = match.group(1).strip()
+                if value and len(value) > 2:
+                    updates[entity] = value
+                    break
+
+    if updates:
+        # Merge with existing needs
+        ctx = get_lead_context(lead_id)
+        existing_needs = ctx.get("needs", "[]")
+        import json
+        try:
+            needs_list = json.loads(existing_needs) if isinstance(existing_needs, str) else existing_needs
+        except (json.JSONDecodeError, TypeError):
+            needs_list = []
+
+        for entity, value in updates.items():
+            entry = f"{entity}: {value}"
+            if entry not in needs_list:
+                needs_list.append(entry)
+
+        update_lead_context(lead_id, needs=json.dumps(needs_list, ensure_ascii=False))
+        logger.info("Extracted entities for lead %d: %s", lead_id, updates)
+
+
+# ---- Conversation Summarization ----
+
+def _maybe_summarize(lead_id: int):
+    """Summarize conversation if more than 10 unsent messages."""
+    conn = get_conn()
+    count = conn.execute(
+        "SELECT COUNT(*) as cnt FROM conversations WHERE lead_id = ?",
+        (lead_id,)
+    ).fetchone()["cnt"]
+
+    if count >= 10 and count % 10 == 0:
+        summarize_conversation(lead_id)
+
+
+def summarize_conversation(lead_id: int):
+    """
+    Generate a summary of conversation history.
+    Uses keyword extraction (no LLM call needed).
+    Stores summary as a special 'summary' message.
+    """
+    conn = get_conn()
+    messages = conn.execute(
+        "SELECT * FROM conversations WHERE lead_id = ? AND channel != 'summary' ORDER BY created_at",
+        (lead_id,)
+    ).fetchall()
+
+    if len(messages) < 5:
+        return
+
+    # Simple extractive summary: pick key sentences
+    inbound = [m["content"] for m in messages if m["direction"] == "inbound"]
+    outbound = [m["content"] for m in messages if m["direction"] == "outbound"]
+
+    summary_parts = []
+    if inbound:
+        summary_parts.append(f"Клиент: {inbound[-1][:100]}")
+    if outbound:
+        summary_parts.append(f"Агент: {outbound[-1][:100]}")
+
+    channels = set(m["channel"] for m in messages)
+    summary_parts.append(f"Каналы: {', '.join(channels)}")
+    summary_parts.append(f"Всего сообщений: {len(messages)}")
+
+    summary = " | ".join(summary_parts)
+
+    # Store as summary message (replaces old messages in prompt)
+    conn.execute(
+        "INSERT INTO conversations (lead_id, channel, direction, content, metadata) VALUES (?, 'summary', 'system', ?, ?)",
+        (lead_id, summary, json.dumps({"type": "auto_summary", "message_count": len(messages)}, ensure_ascii=False)),
+    )
+    conn.commit()
+    logger.info("Auto-summarized %d messages for lead %d", len(messages), lead_id)
+
+
+# ---- Memory Snapshot ----
+
+def get_memory_snapshot(lead_id: int) -> str:
+    """
+    Get a compact memory snapshot for the agent:
+    - Key entities (budget, decision maker, timeline, pain points)
+    - Latest summary (if available)
+    - Last 5 raw messages
+    - Current context (stage, interest, next action)
+    """
+    ctx = get_lead_context(lead_id)
+    conn = get_conn()
+
+    # Key entities
+    entities_text = ""
+    needs = ctx.get("needs", "[]")
+    import json
+    try:
+        needs_list = json.loads(needs) if isinstance(needs, str) else needs
+    except (json.JSONDecodeError, TypeError):
+        needs_list = []
+    if needs_list:
+        entities_text = "\nИЗВЛЕЧЁННЫЕ ДАННЫЕ:\n"
+        for need in needs_list:
+            entities_text += f"- {need}\n"
+
+    # Latest summary
+    summary_text = ""
+    summary = conn.execute(
+        "SELECT content FROM conversations WHERE lead_id = ? AND channel = 'summary' ORDER BY created_at DESC LIMIT 1",
+        (lead_id,)
+    ).fetchone()
+    if summary:
+        summary_text = f"\nКРАТКАЯ ИСТОРИЯ: {summary['content']}\n"
+
+    # Last 5 raw messages
+    recent = conn.execute(
+        "SELECT * FROM conversations WHERE lead_id = ? AND channel != 'summary' ORDER BY created_at DESC LIMIT 5",
+        (lead_id,)
+    ).fetchall()
+    recent_text = ""
+    if recent:
+        recent_text = "\nПОСЛЕДНИЕ СООБЩЕНИЯ:\n"
+        for msg in reversed(recent):
+            direction = "Клиент" if msg["direction"] == "inbound" else "Агент"
+            recent_text += f"[{msg['channel']}] {direction}: {msg['content'][:150]}\n"
+
+    return entities_text + summary_text + recent_text
 
 
 def get_next_action(lead_id: int) -> dict:

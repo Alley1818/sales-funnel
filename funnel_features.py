@@ -320,14 +320,130 @@ def get_ab_tests() -> list[dict]:
 
 
 def pick_ab_variant(test_id: int) -> str:
-    """Pick A or B variant based on even distribution."""
+    """Pick A or B variant using Thompson sampling (probabilistic, favors winner)."""
+    import random
     conn = get_conn()
     test = conn.execute("SELECT * FROM ab_tests WHERE id = ?", (test_id,)).fetchone()
     if not test:
         return "A"
-    total_a = test["sent_a"] or 0
-    total_b = test["sent_b"] or 0
-    return "A" if total_a <= total_b else "B"
+
+    sent_a = max(test["sent_a"] or 0, 1)
+    sent_b = max(test["sent_b"] or 0, 1)
+    resp_a = test["response_a"] or 0
+    resp_b = test["response_b"] or 0
+
+    # Thompson sampling: sample from Beta distribution
+    # Beta(successes + 1, failures + 1)
+    sample_a = random.betavariate(resp_a + 1, sent_a - resp_a + 1)
+    sample_b = random.betavariate(resp_b + 1, sent_b - resp_b + 1)
+
+    return "A" if sample_a >= sample_b else "B"
+
+
+def get_ab_significance(test_id: int) -> dict:
+    """
+    Calculate statistical significance of A/B test using chi-squared test.
+    Returns: {significant: bool, confidence: float, winner: str|None, p_value: float}
+    """
+    conn = get_conn()
+    test = conn.execute("SELECT * FROM ab_tests WHERE id = ?", (test_id,)).fetchone()
+    if not test:
+        return {"significant": False, "confidence": 0, "winner": None, "p_value": 1.0}
+
+    sent_a = test["sent_a"] or 0
+    sent_b = test["sent_b"] or 0
+    resp_a = test["response_a"] or 0
+    resp_b = test["response_b"] or 0
+
+    # Need minimum sample size
+    if sent_a < 10 or sent_b < 10:
+        return {"significant": False, "confidence": 0, "winner": None, "p_value": 1.0,
+                "reason": f"Need min 10 sends per variant (A={sent_a}, B={sent_b})"}
+
+    # Chi-squared test for independence
+    # Contingency table: [[resp_a, sent_a-resp_a], [resp_b, sent_b-resp_b]]
+    no_resp_a = sent_a - resp_a
+    no_resp_b = sent_b - resp_b
+    total = sent_a + sent_b
+    total_resp = resp_a + resp_b
+    total_no_resp = no_resp_a + no_resp_b
+
+    if total_resp == 0 or total_no_resp == 0:
+        return {"significant": False, "confidence": 0, "winner": None, "p_value": 1.0,
+                "reason": "No responses yet"}
+
+    # Expected values
+    e_resp_a = sent_a * total_resp / total
+    e_resp_b = sent_b * total_resp / total
+    e_no_resp_a = sent_a * total_no_resp / total
+    e_no_resp_b = sent_b * total_no_resp / total
+
+    # Chi-squared statistic
+    chi2 = 0
+    for observed, expected in [(resp_a, e_resp_a), (no_resp_a, e_no_resp_a),
+                                (resp_b, e_resp_b), (no_resp_b, e_no_resp_b)]:
+        if expected > 0:
+            chi2 += (observed - expected) ** 2 / expected
+
+    # Approximate p-value (1 df chi-squared)
+    # Using Wilson-Hilferty approximation
+    import math
+    if chi2 > 0:
+        z = math.sqrt(chi2)
+        # Standard normal CDF approximation
+        p_value = 2 * (1 - _norm_cdf(abs(z)))
+    else:
+        p_value = 1.0
+
+    confidence = 1 - p_value
+    significant = confidence >= 0.95
+
+    winner = None
+    if significant:
+        rate_a = resp_a / sent_a if sent_a > 0 else 0
+        rate_b = resp_b / sent_b if sent_b > 0 else 0
+        winner = "A" if rate_a > rate_b else "B"
+
+    return {
+        "significant": significant,
+        "confidence": round(confidence, 4),
+        "winner": winner,
+        "p_value": round(p_value, 4),
+        "rate_a": round(resp_a / sent_a, 4) if sent_a > 0 else 0,
+        "rate_b": round(resp_b / sent_b, 4) if sent_b > 0 else 0,
+        "sent_a": sent_a,
+        "sent_b": sent_b,
+        "resp_a": resp_a,
+        "resp_b": resp_b,
+    }
+
+
+def _norm_cdf(x: float) -> float:
+    """Approximate standard normal CDF using error function."""
+    import math
+    return 0.5 * (1 + math.erf(x / math.sqrt(2)))
+
+
+def check_ab_winner(test_id: int) -> dict:
+    """
+    Check if A/B test has a winner. If significant at 95%, auto-pause the loser.
+    Returns significance info + action taken.
+    """
+    result = get_ab_significance(test_id)
+
+    if result["significant"] and result["winner"]:
+        conn = get_conn()
+        # Mark test as completed with winner
+        conn.execute(
+            "UPDATE ab_tests SET status = ? WHERE id = ?",
+            (f"winner_{result['winner']}", test_id),
+        )
+        conn.commit()
+        result["action"] = f"winner_{result['winner']}_declared"
+    else:
+        result["action"] = "continue_testing"
+
+    return result
 
 
 def record_ab_result(test_id: int, variant: str, responded: bool = False):
