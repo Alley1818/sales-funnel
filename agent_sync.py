@@ -15,14 +15,25 @@ logger = logging.getLogger("agent_sync")
 def init_sync_tables():
     """Create conversation tracking tables."""
     conn = get_conn()
+    # Migrate existing table first (add event_type if missing)
+    try:
+        conn.execute("SELECT event_type FROM conversations LIMIT 1")
+    except Exception:
+        # Either table doesn't exist or column is missing
+        try:
+            conn.execute("ALTER TABLE conversations ADD COLUMN event_type TEXT DEFAULT 'message'")
+            logger.info("Added event_type column to conversations")
+        except Exception:
+            pass  # Table doesn't exist yet — CREATE TABLE below will handle it
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS conversations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             lead_id INTEGER REFERENCES leads(id),
-            channel TEXT NOT NULL,  -- 'voice', 'whatsapp', 'email'
-            direction TEXT NOT NULL,  -- 'inbound', 'outbound'
+            channel TEXT NOT NULL,  -- 'voice', 'whatsapp', 'email', 'system'
+            direction TEXT NOT NULL,  -- 'inbound', 'outbound', 'event'
             content TEXT NOT NULL,
             metadata TEXT DEFAULT '{}',
+            event_type TEXT DEFAULT 'message',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -40,18 +51,22 @@ def init_sync_tables():
 
         CREATE INDEX IF NOT EXISTS idx_conv_lead ON conversations(lead_id);
         CREATE INDEX IF NOT EXISTS idx_conv_channel ON conversations(channel);
+        CREATE INDEX IF NOT EXISTS idx_conv_event ON conversations(event_type);
+        CREATE INDEX IF NOT EXISTS idx_conv_created ON conversations(created_at);
     """)
     conn.commit()
 
 
 # ---- Conversation Logging ----
 
-def log_message(lead_id: int, channel: str, direction: str, content: str, metadata: dict = None):
+def log_message(lead_id: int, channel: str, direction: str, content: str,
+                metadata: dict = None, event_type: str = "message"):
     """Log a message from any channel."""
     conn = get_conn()
     conn.execute(
-        "INSERT INTO conversations (lead_id, channel, direction, content, metadata) VALUES (?,?,?,?,?)",
-        (lead_id, channel, direction, content, json.dumps(metadata or {}, ensure_ascii=False)),
+        "INSERT INTO conversations (lead_id, channel, direction, content, metadata, event_type) VALUES (?,?,?,?,?,?)",
+        (lead_id, channel, direction, content,
+         json.dumps(metadata or {}, ensure_ascii=False), event_type),
     )
     # Update lead_context
     conn.execute("""
@@ -479,6 +494,81 @@ def get_next_action(lead_id: int) -> dict:
         return {"action": "skip", "reason": "Клиент отказался"}
     else:
         return {"action": "wait", "reason": "Нет действий"}
+
+
+# ---- Timeline / Event Logging ----
+
+def log_event(lead_id: int, event_type: str, content: str,
+              channel: str = "system", metadata: dict = None):
+    """Log a system event to the unified timeline.
+
+    event_type: status_change, kp_sent, followup, score_change, call_result, message
+    """
+    log_message(lead_id, channel, "event", content,
+                metadata=metadata, event_type=event_type)
+
+
+def log_status_change(lead_id: int, old_status: str, new_status: str, notes: str = ""):
+    """Log a lead status change event."""
+    content = f"Статус: {old_status} → {new_status}"
+    if notes:
+        content += f" ({notes})"
+    log_event(lead_id, "status_change", content,
+              metadata={"old_status": old_status, "new_status": new_status, "notes": notes})
+
+
+def log_kp_sent(lead_id: int, channel: str, company_name: str = ""):
+    """Log a КП (commercial proposal) send event."""
+    log_event(lead_id, "kp_sent", f"КП отправлено через {channel}",
+              channel=channel, metadata={"company": company_name})
+
+
+def log_followup_event(lead_id: int, attempt: int, channel: str):
+    """Log a follow-up attempt."""
+    log_event(lead_id, "followup", f"Follow-up #{attempt} через {channel}",
+              channel=channel, metadata={"attempt": attempt})
+
+
+def log_score_change(lead_id: int, old_score: int, new_score: int, reason: str = ""):
+    """Log a lead score change event."""
+    content = f"Скор: {old_score} → {new_score}"
+    if reason:
+        content += f" ({reason})"
+    log_event(lead_id, "score_change", content,
+              metadata={"old_score": old_score, "new_score": new_score, "reason": reason})
+
+
+def get_lead_timeline(lead_id: int, limit: int = 50, event_type: str = None) -> list[dict]:
+    """Get unified timeline for a lead. Returns all events chronologically.
+
+    Args:
+        lead_id: Lead ID
+        limit: Max events to return
+        event_type: Filter by event type (None = all)
+    """
+    conn = get_conn()
+    if event_type:
+        rows = conn.execute(
+            "SELECT * FROM conversations WHERE lead_id = ? AND event_type = ? "
+            "ORDER BY created_at DESC LIMIT ?",
+            (lead_id, event_type, limit),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT * FROM conversations WHERE lead_id = ? "
+            "ORDER BY created_at DESC LIMIT ?",
+            (lead_id, limit),
+        ).fetchall()
+    events = []
+    for r in reversed(rows):
+        row = dict(r)
+        # Parse metadata JSON
+        try:
+            row["metadata"] = json.loads(row.get("metadata", "{}"))
+        except (json.JSONDecodeError, TypeError):
+            row["metadata"] = {}
+        events.append(row)
+    return events
 
 
 # Initialize on import
