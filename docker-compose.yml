@@ -9,6 +9,8 @@ services:
       - "5050:5050"
     env_file:
       - .env
+    environment:
+      - EVO_API_URL=http://evolution_api:8080
     volumes:
       - ./leads.db:/app/leads.db
       - ./config.json:/app/config.json
