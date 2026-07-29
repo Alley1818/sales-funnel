@@ -43,3 +43,6 @@ sqlite3.OperationalError: no such table: leads
 2026-07-29 11:42:34,890 [db_extended] INFO: Extended tables initialized
 2026-07-29 11:42:34,891 [funnel_features] INFO: Seeded 5 default templates
 2026-07-29 11:42:34,919 [middleware] INFO: Auth initialized with default admin
+2026-07-29 12:21:08,541 [app] WARNING: flask-wtf not installed — CSRF protection disabled
+2026-07-29 12:21:08,552 [db] INFO: DB connection created
+2026-07-29 12:21:08,555 [db_extended] INFO: Extended tables initialized

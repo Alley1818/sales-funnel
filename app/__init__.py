@@ -54,10 +54,12 @@ def create_app(config_override: dict | None = None) -> Flask:
     if config_override:
         app.config.update(config_override)
 
-    # CSRF
+    # CSRF — disable for /api/ routes (JSON API uses Bearer token auth)
     try:
         from flask_wtf.csrf import CSRFProtect
-        CSRFProtect(app)
+        csrf = CSRFProtect(app)
+        # Store csrf ref so blueprints can be exempted after registration
+        app.extensions["csrf_protect"] = csrf
     except ImportError:
         logging.getLogger("app").warning(
             "flask-wtf not installed — CSRF protection disabled"
@@ -98,6 +100,7 @@ def create_app(config_override: dict | None = None) -> Flask:
     from app.api.technomax import technomax_bp
     from app.api.features import features_bp
     from app.api.advanced import advanced_bp
+    from app.api.agent_tools import agent_tools_bp
 
     app.register_blueprint(core_bp)
     app.register_blueprint(leads_bp)
@@ -107,5 +110,13 @@ def create_app(config_override: dict | None = None) -> Flask:
     app.register_blueprint(technomax_bp)
     app.register_blueprint(features_bp)
     app.register_blueprint(advanced_bp)
+    app.register_blueprint(agent_tools_bp, url_prefix="/api/agent")
+
+    # Exempt all API blueprints from CSRF (JSON API with Bearer auth)
+    csrf = app.extensions.get("csrf_protect")
+    if csrf:
+        for bp in [core_bp, leads_bp, whatsapp_bp, agent_bp, agent_tools_bp,
+                    config_bp, technomax_bp, features_bp, advanced_bp]:
+            csrf.exempt(bp)
 
     return app
