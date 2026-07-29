@@ -307,6 +307,18 @@ def wa_webhook():
         mid = log_incoming_wa(phone, message)
         logger.info("Incoming WA from %s: %s (id=%s)", phone, message[:50], mid)
 
+        # Process with AI agent (non-blocking)
+        try:
+            from wa_agent_service import process_incoming_message
+            import threading
+            threading.Thread(
+                target=process_incoming_message,
+                args=(phone, message),
+                daemon=True,
+            ).start()
+        except Exception as e:
+            logger.error("WA agent processing failed: %s", e)
+
     return jsonify({"ok": True})
 
 

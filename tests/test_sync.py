@@ -181,6 +181,222 @@ def test_push_leads_no_agent():
     """push_leads_to_task without agent_id returns error."""
     from app.services.lead_push_service import push_leads_to_task
     result = push_leads_to_task(
-        [{"mobile": "+77001234567"}], "test", agent_id="", bot_id=""
+        [{"mobile": "+770****4567"}], "test", agent_id="", bot_id=""
     )
     assert "error" in result
+
+
+# ---- Lead Sync Service Tests ----
+
+def test_sync_insert_new_leads():
+    """sync_leads_from_local inserts new leads when mobile doesn't exist."""
+    from app.services.lead_sync_service import sync_leads_from_local
+    from db_conn import get_conn
+    conn = get_conn()
+    # Clean any existing test mobiles
+    for m in ["7700SYNC001", "7700SYNC002"]:
+        conn.execute("DELETE FROM leads WHERE mobile = ?", (m,))
+    conn.commit()
+
+    leads = [
+        {"company_name": "SyncCo1", "industry": "IT", "mobile": "7700SYNC001",
+         "whatsapp": "7700SYNC001", "email": "s1@test.com"},
+        {"company_name": "SyncCo2", "industry": "Finance", "mobile": "7700SYNC002",
+         "whatsapp": "", "email": "s2@test.com"},
+    ]
+    result = sync_leads_from_local(leads)
+    assert result["synced"] == 2
+    assert result["updated"] == 0
+
+    # Verify rows exist
+    row = conn.execute("SELECT * FROM leads WHERE mobile = '7700SYNC001'").fetchone()
+    assert row is not None
+    assert row["company_name"] == "SyncCo1"
+    assert row["status"] == "new"
+
+    # Cleanup
+    for m in ["7700SYNC001", "7700SYNC002"]:
+        conn.execute("DELETE FROM leads WHERE mobile = ?", (m,))
+    conn.commit()
+
+
+def test_sync_update_existing_leads():
+    """sync_leads_from_local updates existing leads when mobile matches."""
+    from app.services.lead_sync_service import sync_leads_from_local
+    from db_conn import get_conn
+    conn = get_conn()
+    mobile = "7700SYNC003"
+    conn.execute("DELETE FROM leads WHERE mobile = ?", (mobile,))
+    conn.execute(
+        "INSERT INTO leads (company_name, industry, mobile, status) VALUES (?, ?, ?, ?)",
+        ("OldName", "OldIndustry", mobile, "called"),
+    )
+    conn.commit()
+
+    leads = [
+        {"company_name": "NewName", "industry": "NewIndustry", "mobile": mobile,
+         "whatsapp": "7700SYNC003", "email": "new@test.com"},
+    ]
+    result = sync_leads_from_local(leads)
+    assert result["synced"] == 0
+    assert result["updated"] == 1
+
+    row = conn.execute("SELECT * FROM leads WHERE mobile = ?", (mobile,)).fetchone()
+    assert row["company_name"] == "NewName"
+    assert row["industry"] == "NewIndustry"
+    assert row["email"] == "new@test.com"
+    # Status should NOT be changed by sync
+    assert row["status"] == "called"
+
+    conn.execute("DELETE FROM leads WHERE mobile = ?", (mobile,))
+    conn.commit()
+
+
+def test_sync_mixed_insert_and_update():
+    """sync_leads_from_local handles mix of new and existing leads."""
+    from app.services.lead_sync_service import sync_leads_from_local
+    from db_conn import get_conn
+    conn = get_conn()
+    # Clean
+    for m in ["7700SYNC004", "7700SYNC005"]:
+        conn.execute("DELETE FROM leads WHERE mobile = ?", (m,))
+    # Pre-insert one
+    conn.execute(
+        "INSERT INTO leads (company_name, industry, mobile, status) VALUES (?, ?, ?, ?)",
+        ("ExistingCo", "IT", "7700SYNC004", "new"),
+    )
+    conn.commit()
+
+    leads = [
+        {"company_name": "UpdatedCo", "industry": "IT", "mobile": "7700SYNC004",
+         "whatsapp": "", "email": ""},
+        {"company_name": "BrandNewCo", "industry": "Retail", "mobile": "7700SYNC005",
+         "whatsapp": "7700SYNC005", "email": "bn@test.com"},
+    ]
+    result = sync_leads_from_local(leads)
+    assert result["synced"] == 1
+    assert result["updated"] == 1
+
+    # Cleanup
+    for m in ["7700SYNC004", "7700SYNC005"]:
+        conn.execute("DELETE FROM leads WHERE mobile = ?", (m,))
+    conn.commit()
+
+
+def test_sync_empty_list():
+    """sync_leads_from_local with empty list returns zeros."""
+    from app.services.lead_sync_service import sync_leads_from_local
+    result = sync_leads_from_local([])
+    assert result == {"synced": 0, "updated": 0}
+
+
+def test_sync_skips_empty_mobile():
+    """sync_leads_from_local skips leads with empty mobile."""
+    from app.services.lead_sync_service import sync_leads_from_local
+    leads = [
+        {"company_name": "NoMobile", "industry": "IT", "mobile": "",
+         "whatsapp": "", "email": ""},
+        {"company_name": "AlsoNoMobile", "industry": "IT", "mobile": None,
+         "whatsapp": "", "email": ""},
+    ]
+    result = sync_leads_from_local(leads)
+    assert result["synced"] == 0
+    assert result["updated"] == 0
+
+
+# ---- Sync API Endpoint Tests ----
+
+def _get_auth_token():
+    """Get a valid auth token for API tests."""
+    from middleware import init_auth, create_session
+    init_auth()
+    return create_session("admin")
+
+
+def test_api_sync_endpoint_basic():
+    """POST /api/leads/sync inserts new leads and returns counts."""
+    from app import create_app
+    from db_conn import get_conn
+    conn = get_conn()
+    for m in ["7700API001", "7700API002"]:
+        conn.execute("DELETE FROM leads WHERE mobile = ?", (m,))
+    conn.commit()
+
+    app = create_app()
+    token = _get_auth_token()
+    with app.test_client() as client:
+        r = client.post(
+            "/api/leads/sync",
+            json={"leads": [
+                {"company_name": "ApiCo1", "industry": "IT", "mobile": "7700API001",
+                 "whatsapp": "7700API001", "email": "api1@test.com"},
+                {"company_name": "ApiCo2", "industry": "Finance", "mobile": "7700API002",
+                 "whatsapp": "", "email": ""},
+            ]},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["synced"] == 2
+        assert data["updated"] == 0
+
+    for m in ["7700API001", "7700API002"]:
+        conn.execute("DELETE FROM leads WHERE mobile = ?", (m,))
+    conn.commit()
+
+
+def test_api_sync_endpoint_update():
+    """POST /api/leads/sync updates existing leads."""
+    from app import create_app
+    from db_conn import get_conn
+    conn = get_conn()
+    mobile = "7700API003"
+    conn.execute("DELETE FROM leads WHERE mobile = ?", (mobile,))
+    conn.execute(
+        "INSERT INTO leads (company_name, industry, mobile, status) VALUES (?, ?, ?, ?)",
+        ("OldApiCo", "IT", mobile, "new"),
+    )
+    conn.commit()
+
+    app = create_app()
+    token = _get_auth_token()
+    with app.test_client() as client:
+        r = client.post(
+            "/api/leads/sync",
+            json={"leads": [
+                {"company_name": "NewApiCo", "industry": "Finance", "mobile": mobile,
+                 "whatsapp": mobile, "email": "updated@test.com"},
+            ]},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["synced"] == 0
+        assert data["updated"] == 1
+
+    conn.execute("DELETE FROM leads WHERE mobile = ?", (mobile,))
+    conn.commit()
+
+
+def test_api_sync_no_auth():
+    """POST /api/leads/sync without auth returns 401."""
+    from app import create_app
+    app = create_app()
+    with app.test_client() as client:
+        r = client.post("/api/leads/sync", json={"leads": []})
+        assert r.status_code == 401
+
+
+def test_api_sync_missing_leads():
+    """POST /api/leads/sync without 'leads' key returns 400."""
+    from app import create_app
+    app = create_app()
+    token = _get_auth_token()
+    with app.test_client() as client:
+        r = client.post(
+            "/api/leads/sync",
+            json={"data": "wrong"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r.status_code == 400
+        assert "error" in r.get_json()

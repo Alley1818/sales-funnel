@@ -202,6 +202,24 @@ def industries():
     return jsonify({"industries": [r["industry"] for r in rows]})
 
 
+@leads_bp.route("/api/leads/sync", methods=["POST"])
+@require_auth
+def leads_sync():
+    """Sync leads from local/external source — upsert by mobile."""
+    from app.services.lead_sync_service import sync_leads_from_local
+
+    data = request.get_json()
+    if not data or "leads" not in data:
+        return jsonify({"error": "JSON body with 'leads' array required"}), 400
+
+    leads = data["leads"]
+    if not isinstance(leads, list):
+        return jsonify({"error": "'leads' must be an array"}), 400
+
+    result = sync_leads_from_local(leads)
+    return jsonify(result)
+
+
 @require_auth
 @leads_bp.route("/api/call/result", methods=["POST"])
 def call_result():

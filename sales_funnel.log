@@ -3,3 +3,43 @@
 2026-07-28 10:49:30,339 [db_extended] INFO: Extended tables initialized
 2026-07-28 10:53:36,914 [db] INFO: DB connection created
 2026-07-28 10:53:36,916 [db_extended] INFO: Extended tables initialized
+2026-07-29 11:37:16,798 [app] WARNING: flask-wtf not installed — CSRF protection disabled
+2026-07-29 11:37:16,800 [db] INFO: DB connection created
+2026-07-29 11:37:16,808 [db_extended] INFO: Extended tables initialized
+2026-07-29 11:37:16,809 [funnel_features] INFO: Seeded 5 default templates
+2026-07-29 11:38:34,996 [app] WARNING: flask-wtf not installed — CSRF protection disabled
+2026-07-29 11:38:34,998 [db] INFO: DB connection created
+2026-07-29 11:38:35,006 [db_extended] INFO: Extended tables initialized
+2026-07-29 11:38:35,007 [funnel_features] INFO: Seeded 5 default templates
+2026-07-29 11:38:35,035 [middleware] INFO: Auth initialized with default admin
+2026-07-29 11:38:35,063 [app] ERROR: Exception on /api/leads/sync [POST]
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/ali/Desktop/sales_funnel/app/api/leads.py", line 219, in leads_sync
+    result = sync_leads_from_local(leads)
+  File "/Users/ali/Desktop/sales_funnel/app/services/lead_sync_service.py", line 40, in sync_leads_from_local
+    existing = conn.execute(
+               ~~~~~~~~~~~~^
+        "SELECT id FROM leads WHERE mobile = ?", (mobile,)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ).fetchone()
+    ^
+sqlite3.OperationalError: no such table: leads
+2026-07-29 11:41:29,622 [app] WARNING: flask-wtf not installed — CSRF protection disabled
+2026-07-29 11:41:29,624 [db] INFO: DB connection created
+2026-07-29 11:41:29,634 [db_extended] INFO: Extended tables initialized
+2026-07-29 11:41:29,635 [funnel_features] INFO: Seeded 5 default templates
+2026-07-29 11:41:29,666 [middleware] INFO: Auth initialized with default admin
+2026-07-29 11:42:34,879 [app] WARNING: flask-wtf not installed — CSRF protection disabled
+2026-07-29 11:42:34,880 [db] INFO: DB connection created
+2026-07-29 11:42:34,890 [db_extended] INFO: Extended tables initialized
+2026-07-29 11:42:34,891 [funnel_features] INFO: Seeded 5 default templates
+2026-07-29 11:42:34,919 [middleware] INFO: Auth initialized with default admin
