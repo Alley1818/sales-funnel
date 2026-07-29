@@ -181,6 +181,7 @@ jobs:
             APP_DIR="$HOME/sales-funnel"
             if [ -d "$APP_DIR" ]; then
               cd "$APP_DIR"
+              git stash --quiet || true
               git pull origin main
             else
               git clone https://github.com/Alley1818/sales-funnel.git "$APP_DIR"
