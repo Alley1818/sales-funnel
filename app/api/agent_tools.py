@@ -22,6 +22,8 @@ def send_whatsapp():
     phone = data.get("phone", "").strip()
     if not phone:
         return jsonify({"error": "phone required"}), 400
+    if phone.startswith("{") and phone.endswith("}"):
+        return jsonify({"error": f"phone is a template variable, not interpolated: {phone}"}), 400
 
     # Find lead by mobile or whatsapp or phone column
     conn = get_conn()
@@ -131,6 +133,8 @@ def create_deal():
 
     if not phone:
         return jsonify({"error": "phone required"}), 400
+    if phone.startswith("{") and phone.endswith("}"):
+        return jsonify({"error": f"phone is a template variable, not interpolated: {phone}"}), 400
 
     conn = get_conn()
 
@@ -195,6 +199,8 @@ def schedule_callback_route():
 
     if not phone:
         return jsonify({"error": "phone required"}), 400
+    if phone.startswith("{") and phone.endswith("}"):
+        return jsonify({"error": f"phone is a template variable, not interpolated: {phone}"}), 400
     if not callback_datetime:
         return jsonify({"error": "callback_datetime required"}), 400
 

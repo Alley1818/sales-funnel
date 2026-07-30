@@ -72,6 +72,7 @@ async def create_sales_agent(token: str, funnel_api_url: str = "http://YOUR_VPS_
             "outOfLimitMessage": "К сожалению, время сессии истекло. Наш менеджер свяжется с вами в ближайшее время.",
             "contextVariables": [
                 {"name": "phone", "description": "Номер телефона клиента", "defaultValue": ""},
+                {"name": "phone_number", "description": "Номер телефона клиента (алиас)", "defaultValue": ""},
                 {"name": "company_name", "description": "Название компании клиента", "defaultValue": ""},
                 {"name": "industry", "description": "Отрасль клиента", "defaultValue": ""},
                 {"name": "lead_id", "description": "ID лида в базе", "defaultValue": ""},
