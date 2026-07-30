@@ -10,8 +10,8 @@ config_bp = Blueprint("config", __name__)
 
 # ---- SMTP Config ----
 
-@require_auth
 @config_bp.route("/api/config/smtp", methods=["GET"])
+@require_auth
 def get_smtp_config():
     """Get SMTP configuration (password masked)."""
     cfg = current_app.config["load_config"]()
@@ -25,8 +25,8 @@ def get_smtp_config():
     })
 
 
-@require_auth
 @config_bp.route("/api/config/smtp", methods=["POST"])
+@require_auth
 def set_smtp_config():
     """Save SMTP configuration."""
     data = request.get_json()
@@ -49,8 +49,8 @@ def set_smtp_config():
     return jsonify({"ok": True})
 
 
-@require_auth
 @config_bp.route("/api/config/smtp/test", methods=["POST"])
+@require_auth
 def test_smtp():
     """Send a test email."""
     data = request.get_json() or {}
@@ -81,8 +81,8 @@ def test_smtp():
 
 # ---- Notification Settings ----
 
-@require_auth
 @config_bp.route("/api/config/notifications", methods=["GET"])
+@require_auth
 def get_notifications():
     """Get notification config."""
     cfg = current_app.config["load_config"]()
@@ -94,8 +94,8 @@ def get_notifications():
     })
 
 
-@require_auth
 @config_bp.route("/api/config/notifications", methods=["POST"])
+@require_auth
 def set_notifications():
     """Update notification config."""
     data = request.get_json() or {}
@@ -114,8 +114,8 @@ def set_notifications():
     return jsonify({"ok": True, "auto_send": cfg.get("auto_send", False)})
 
 
-@require_auth
 @config_bp.route("/api/config/notifications/test", methods=["POST"])
+@require_auth
 def test_notification():
     """Send a test Telegram notification."""
     from telegram_notifier import _send_telegram_sync

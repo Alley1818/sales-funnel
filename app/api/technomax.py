@@ -7,8 +7,8 @@ from middleware import require_auth
 technomax_bp = Blueprint("technomax", __name__)
 
 
-@require_auth
 @technomax_bp.route("/api/technomax/dashboard")
+@require_auth
 def technomax_dashboard():
     """Get Technomax platform data: tasks, bots, agents, call stats."""
     import httpx as _httpx
@@ -22,8 +22,8 @@ def technomax_dashboard():
         return jsonify({"error": str(e)}), 500
 
 
-@require_auth
 @technomax_bp.route("/api/technomax/tasks")
+@require_auth
 def technomax_tasks():
     """List autocall tasks from Technomax."""
     import httpx as _httpx
@@ -37,8 +37,8 @@ def technomax_tasks():
         return jsonify({"error": str(e)}), 500
 
 
-@require_auth
 @technomax_bp.route("/api/technomax/tasks/<task_id>")
+@require_auth
 def technomax_task_detail(task_id):
     """Get autocall task detail from Technomax."""
     import httpx as _httpx

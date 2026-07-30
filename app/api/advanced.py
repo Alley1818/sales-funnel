@@ -11,15 +11,15 @@ advanced_bp = Blueprint("advanced", __name__)
 
 # ==================== RAG KNOWLEDGE BASE ====================
 
-@require_auth
 @advanced_bp.route("/api/knowledge", methods=["GET"])
+@require_auth
 def list_knowledge():
     from advanced_features import get_documents
     return jsonify({"documents": get_documents()})
 
 
-@require_auth
 @advanced_bp.route("/api/knowledge", methods=["POST"])
+@require_auth
 def add_knowledge():
     from advanced_features import add_document, log_action
     data = request.get_json() or {}
@@ -34,8 +34,8 @@ def add_knowledge():
     return jsonify({"ok": True, "id": doc_id})
 
 
-@require_auth
 @advanced_bp.route("/api/knowledge/<int:doc_id>", methods=["DELETE"])
+@require_auth
 def del_knowledge(doc_id):
     from advanced_features import delete_document, log_action
     delete_document(doc_id)
@@ -43,8 +43,8 @@ def del_knowledge(doc_id):
     return jsonify({"ok": True})
 
 
-@require_auth
 @advanced_bp.route("/api/knowledge/search", methods=["POST"])
+@require_auth
 def search_knowledge():
     from advanced_features import search_knowledge, get_rag_context
     data = request.get_json() or {}
@@ -59,15 +59,15 @@ def search_knowledge():
 
 # ==================== SENTIMENT ====================
 
-@require_auth
 @advanced_bp.route("/api/sentiment/<int:lead_id>", methods=["GET"])
+@require_auth
 def get_sentiment(lead_id):
     from advanced_features import get_sentiment_history
     return jsonify({"history": get_sentiment_history(lead_id)})
 
 
-@require_auth
 @advanced_bp.route("/api/sentiment/analyze", methods=["POST"])
+@require_auth
 def analyze():
     from advanced_features import log_sentiment
     data = request.get_json() or {}
@@ -83,8 +83,8 @@ def analyze():
 
 # ==================== AUTO SCORING ====================
 
-@require_auth
 @advanced_bp.route("/api/scores/batch", methods=["POST"])
+@require_auth
 def batch_score():
     from advanced_features import batch_score_leads
     data = request.get_json() or {}
@@ -93,8 +93,8 @@ def batch_score():
     return jsonify({"ok": True, "scored": scored})
 
 
-@require_auth
 @advanced_bp.route("/api/scores/auto-score-all", methods=["POST"])
+@require_auth
 def auto_score_all():
     from advanced_features import batch_score_leads
     scored = batch_score_leads(2000)
@@ -103,15 +103,15 @@ def auto_score_all():
 
 # ==================== CALLBACKS ====================
 
-@require_auth
 @advanced_bp.route("/api/callbacks", methods=["GET"])
+@require_auth
 def list_callbacks():
     from advanced_features import get_pending_callbacks
     return jsonify({"callbacks": get_pending_callbacks()})
 
 
-@require_auth
 @advanced_bp.route("/api/callbacks", methods=["POST"])
+@require_auth
 def add_callback():
     from advanced_features import schedule_callback, log_action
     data = request.get_json() or {}
@@ -125,8 +125,8 @@ def add_callback():
     return jsonify({"ok": True, "id": cid})
 
 
-@require_auth
 @advanced_bp.route("/api/callbacks/<int:cid>/complete", methods=["POST"])
+@require_auth
 def complete_cb(cid):
     from advanced_features import complete_callback
     data = request.get_json() or {}
@@ -134,8 +134,8 @@ def complete_cb(cid):
     return jsonify({"ok": True})
 
 
-@require_auth
 @advanced_bp.route("/api/callbacks/due", methods=["GET"])
+@require_auth
 def due_callbacks():
     from advanced_features import get_due_callbacks
     return jsonify({"callbacks": get_due_callbacks()})
@@ -143,15 +143,15 @@ def due_callbacks():
 
 # ==================== TRANSFERS ====================
 
-@require_auth
 @advanced_bp.route("/api/transfers", methods=["GET"])
+@require_auth
 def list_transfers():
     from advanced_features import get_pending_transfers
     return jsonify({"transfers": get_pending_transfers()})
 
 
-@require_auth
 @advanced_bp.route("/api/transfers", methods=["POST"])
+@require_auth
 def add_transfer():
     from advanced_features import request_transfer, log_action
     data = request.get_json() or {}
@@ -167,8 +167,8 @@ def add_transfer():
     return jsonify({"ok": True, "id": tid})
 
 
-@require_auth
 @advanced_bp.route("/api/transfers/<int:tid>/accept", methods=["POST"])
+@require_auth
 def accept_transfer(tid):
     from advanced_features import complete_transfer
     complete_transfer(tid, "accepted")
@@ -177,15 +177,15 @@ def accept_transfer(tid):
 
 # ==================== ANALYTICS ====================
 
-@require_auth
 @advanced_bp.route("/api/analytics/dashboard", methods=["GET"])
+@require_auth
 def analytics_dashboard():
     from advanced_features import get_dashboard_data
     return jsonify(get_dashboard_data())
 
 
-@require_auth
 @advanced_bp.route("/api/analytics/roi", methods=["GET"])
+@require_auth
 def analytics_roi():
     from advanced_features import get_roi_data
     cid = int(request.args.get("campaign_id", 0))
@@ -209,8 +209,8 @@ def login():
 
 # ==================== ACTION LOG ====================
 
-@require_auth
 @advanced_bp.route("/api/action-log", methods=["GET"])
+@require_auth
 def action_log():
     from advanced_features import get_action_log
     limit = int(request.args.get("limit", 50))

@@ -9,8 +9,8 @@ from leads_db import update_lead_status
 leads_bp = Blueprint("leads", __name__)
 
 
-@require_auth
 @leads_bp.route("/api/leads/list")
+@require_auth
 def leads_list():
     """Paginated, searchable, filterable leads list."""
     conn = get_conn()
@@ -73,8 +73,8 @@ def leads_list():
     return jsonify({"leads": leads, "total": total, "offset": offset, "limit": limit})
 
 
-@require_auth
 @leads_bp.route("/api/leads/<int:lead_id>")
+@require_auth
 def lead_detail(lead_id):
     """Get full lead detail with conversation history, sentiment, score."""
     conn = get_conn()
@@ -113,8 +113,8 @@ def lead_detail(lead_id):
     })
 
 
-@require_auth
 @leads_bp.route("/api/leads/export")
+@require_auth
 def leads_export():
     """Export leads as CSV-compatible JSON."""
     conn = get_conn()
@@ -155,8 +155,8 @@ def leads_export():
     return jsonify({"leads": leads})
 
 
-@require_auth
 @leads_bp.route("/api/leads/next")
+@require_auth
 def next_leads():
     """Get next batch of leads to call."""
     from funnel_engine import FunnelEngine
@@ -168,8 +168,8 @@ def next_leads():
     return jsonify({"leads": leads, "count": len(leads)})
 
 
-@require_auth
 @leads_bp.route("/api/leads/<int:lead_id>/status", methods=["PUT"])
+@require_auth
 def update_status(lead_id):
     """Manually update lead status."""
     data = request.get_json()
@@ -180,8 +180,8 @@ def update_status(lead_id):
     return jsonify({"ok": True})
 
 
-@require_auth
 @leads_bp.route("/api/leads/<int:lead_id>/timeline")
+@require_auth
 def lead_timeline(lead_id):
     """Get unified timeline for a lead — all events chronologically."""
     from agent_sync import get_lead_timeline
@@ -191,8 +191,8 @@ def lead_timeline(lead_id):
     return jsonify({"events": events, "count": len(events)})
 
 
-@require_auth
 @leads_bp.route("/api/industries")
+@require_auth
 def industries():
     """Get list of industries from the database."""
     conn = get_conn()
@@ -220,8 +220,8 @@ def leads_sync():
     return jsonify(result)
 
 
-@require_auth
 @leads_bp.route("/api/call/result", methods=["POST"])
+@require_auth
 def call_result():
     """Receive call result from Technomax webhook."""
     from funnel_engine import FunnelEngine, CallResult

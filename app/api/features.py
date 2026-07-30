@@ -13,15 +13,15 @@ features_bp = Blueprint("features", __name__)
 
 # ==================== AI AGENTS ====================
 
-@require_auth
 @features_bp.route("/api/agents", methods=["GET"])
+@require_auth
 def list_agents():
     from funnel_features import get_agents
     return jsonify({"agents": get_agents()})
 
 
-@require_auth
 @features_bp.route("/api/agents", methods=["POST"])
+@require_auth
 def create_agent():
     from funnel_features import create_agent
     data = request.get_json() or {}
@@ -37,8 +37,8 @@ def create_agent():
     return jsonify({"ok": True, "id": aid})
 
 
-@require_auth
 @features_bp.route("/api/agents/<int:agent_id>", methods=["GET"])
+@require_auth
 def get_agent(agent_id):
     from funnel_features import get_agents
     agents = get_agents()
@@ -48,8 +48,8 @@ def get_agent(agent_id):
     return jsonify({"error": "Not found"}), 404
 
 
-@require_auth
 @features_bp.route("/api/agents/<int:agent_id>", methods=["PUT"])
+@require_auth
 def update_agent(agent_id):
     from funnel_features import update_agent
     data = request.get_json() or {}
@@ -57,8 +57,8 @@ def update_agent(agent_id):
     return jsonify({"ok": ok})
 
 
-@require_auth
 @features_bp.route("/api/agents/<int:agent_id>", methods=["DELETE"])
+@require_auth
 def delete_agent(agent_id):
     from funnel_features import delete_agent
     delete_agent(agent_id)
@@ -67,8 +67,8 @@ def delete_agent(agent_id):
 
 # ==================== MESSAGE TEMPLATES ====================
 
-@require_auth
 @features_bp.route("/api/templates", methods=["GET"])
+@require_auth
 def list_templates():
     from funnel_features import get_templates
     industry = request.args.get("industry", "")
@@ -76,8 +76,8 @@ def list_templates():
     return jsonify({"templates": get_templates(industry, channel)})
 
 
-@require_auth
 @features_bp.route("/api/templates", methods=["POST"])
+@require_auth
 def create_template():
     from funnel_features import create_template
     data = request.get_json() or {}
@@ -92,8 +92,8 @@ def create_template():
     return jsonify({"ok": True, "id": tid})
 
 
-@require_auth
 @features_bp.route("/api/templates/<int:tid>", methods=["PUT"])
+@require_auth
 def update_template(tid):
     from funnel_features import update_template
     data = request.get_json() or {}
@@ -101,8 +101,8 @@ def update_template(tid):
     return jsonify({"ok": ok})
 
 
-@require_auth
 @features_bp.route("/api/templates/<int:tid>", methods=["DELETE"])
+@require_auth
 def delete_template(tid):
     from funnel_features import delete_template
     delete_template(tid)
@@ -111,15 +111,15 @@ def delete_template(tid):
 
 # ==================== DO NOT CALL ====================
 
-@require_auth
 @features_bp.route("/api/dnc", methods=["GET"])
+@require_auth
 def list_dnc():
     from funnel_features import get_dnc_list
     return jsonify({"dnc": get_dnc_list()})
 
 
-@require_auth
 @features_bp.route("/api/dnc", methods=["POST"])
+@require_auth
 def add_dnc():
     from funnel_features import add_dnc
     data = request.get_json() or {}
@@ -130,8 +130,8 @@ def add_dnc():
     return jsonify({"ok": ok})
 
 
-@require_auth
 @features_bp.route("/api/dnc/<phone>", methods=["DELETE"])
+@require_auth
 def remove_dnc(phone):
     from funnel_features import remove_dnc
     remove_dnc(phone)
@@ -140,8 +140,8 @@ def remove_dnc(phone):
 
 # ==================== LEAD SCORING ====================
 
-@require_auth
 @features_bp.route("/api/scores", methods=["GET"])
+@require_auth
 def list_scores():
     from funnel_features import get_leads_by_score
     category = request.args.get("category", "")
@@ -149,16 +149,16 @@ def list_scores():
     return jsonify({"leads": get_leads_by_score(category, min_score)})
 
 
-@require_auth
 @features_bp.route("/api/scores/<int:lead_id>", methods=["GET"])
+@require_auth
 def get_score(lead_id):
     from funnel_features import get_lead_score
     score = get_lead_score(lead_id)
     return jsonify(score or {"score": 0, "category": "unscored"})
 
 
-@require_auth
 @features_bp.route("/api/scores/<int:lead_id>", methods=["POST"])
+@require_auth
 def set_score(lead_id):
     from funnel_features import score_lead
     data = request.get_json() or {}
@@ -168,15 +168,15 @@ def set_score(lead_id):
 
 # ==================== CAMPAIGNS ====================
 
-@require_auth
 @features_bp.route("/api/campaigns", methods=["GET"])
+@require_auth
 def list_campaigns():
     from funnel_features import get_campaigns
     return jsonify({"campaigns": get_campaigns()})
 
 
-@require_auth
 @features_bp.route("/api/campaigns", methods=["POST"])
+@require_auth
 def create_campaign():
     from funnel_features import create_campaign
     data = request.get_json() or {}
@@ -193,16 +193,16 @@ def create_campaign():
     return jsonify({"ok": True, "id": cid})
 
 
-@require_auth
 @features_bp.route("/api/campaigns/<int:cid>", methods=["DELETE"])
+@require_auth
 def delete_campaign(cid):
     from funnel_features import delete_campaign
     delete_campaign(cid)
     return jsonify({"ok": True})
 
 
-@require_auth
 @features_bp.route("/api/campaigns/<int:cid>/leads", methods=["POST"])
+@require_auth
 def add_campaign_leads(cid):
     from funnel_features import add_leads_to_campaign
     data = request.get_json() or {}
@@ -211,24 +211,24 @@ def add_campaign_leads(cid):
     return jsonify({"ok": True, "added": added})
 
 
-@require_auth
 @features_bp.route("/api/campaigns/<int:cid>/leads", methods=["GET"])
+@require_auth
 def get_campaign_leads(cid):
     from funnel_features import get_campaign_leads
     status = request.args.get("status", "")
     return jsonify({"leads": get_campaign_leads(cid, status)})
 
 
-@require_auth
 @features_bp.route("/api/campaigns/<int:cid>/start", methods=["POST"])
+@require_auth
 def start_campaign(cid):
     from funnel_features import update_campaign_status
     update_campaign_status(cid, "running")
     return jsonify({"ok": True})
 
 
-@require_auth
 @features_bp.route("/api/campaigns/<int:cid>/pause", methods=["POST"])
+@require_auth
 def pause_campaign(cid):
     from funnel_features import update_campaign_status
     update_campaign_status(cid, "paused")
@@ -237,15 +237,15 @@ def pause_campaign(cid):
 
 # ==================== A/B TESTS ====================
 
-@require_auth
 @features_bp.route("/api/ab-tests", methods=["GET"])
+@require_auth
 def list_ab_tests():
     from funnel_features import get_ab_tests
     return jsonify({"tests": get_ab_tests()})
 
 
-@require_auth
 @features_bp.route("/api/ab-tests", methods=["POST"])
+@require_auth
 def create_ab_test():
     from funnel_features import create_ab_test
     data = request.get_json() or {}
@@ -257,15 +257,15 @@ def create_ab_test():
 
 # ==================== CPS / RATE LIMITING ====================
 
-@require_auth
 @features_bp.route("/api/config/cps", methods=["GET"])
+@require_auth
 def get_cps():
     from funnel_features import CPS_LIMIT
     return jsonify({"cps": CPS_LIMIT})
 
 
-@require_auth
 @features_bp.route("/api/config/cps", methods=["POST"])
+@require_auth
 def set_cps():
     import funnel_features
     data = request.get_json() or {}
@@ -275,8 +275,8 @@ def set_cps():
 
 # ==================== WHATSAPP INBOX ====================
 
-@require_auth
 @features_bp.route("/api/wa/inbox", methods=["GET"])
+@require_auth
 def wa_inbox():
     from funnel_features import get_unreplied_wa
     return jsonify({"messages": get_unreplied_wa()})
@@ -322,8 +322,8 @@ def wa_webhook():
 
 # ==================== BITRIX24 ====================
 
-@require_auth
 @features_bp.route("/api/config/bitrix", methods=["GET"])
+@require_auth
 def get_bitrix():
     from pathlib import Path
     cfg = {}
@@ -337,8 +337,8 @@ def get_bitrix():
     return jsonify({"portal": cfg.get("portal", ""), "configured": bool(cfg.get("portal"))})
 
 
-@require_auth
 @features_bp.route("/api/config/bitrix", methods=["POST"])
+@require_auth
 def set_bitrix():
     from pathlib import Path
     p = Path(__file__).parent.parent.parent / "config.json"
@@ -354,8 +354,8 @@ def set_bitrix():
     return jsonify({"ok": True})
 
 
-@require_auth
 @features_bp.route("/api/bitrix/sync", methods=["POST"])
+@require_auth
 def bitrix_sync():
     """Sync leads to Bitrix24 as contacts/deals."""
     from pathlib import Path

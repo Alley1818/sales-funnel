@@ -57,8 +57,8 @@ def add_test_lead():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-@require_auth
 @core_bp.route("/api/stats")
+@require_auth
 def stats():
     """Get funnel statistics."""
     from db_conn import get_conn
@@ -69,8 +69,8 @@ def stats():
     })
 
 
-@require_auth
 @core_bp.route("/api/report")
+@require_auth
 def report():
     """Get text funnel report."""
     from funnel_engine import FunnelEngine

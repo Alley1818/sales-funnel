@@ -10,8 +10,8 @@ logger = logging.getLogger("agent_api")
 agent_bp = Blueprint("agent", __name__)
 
 
-@require_auth
 @agent_bp.route("/api/agent/send-kp", methods=["POST"])
+@require_auth
 def agent_send_kp():
     """Called by Technomax agent when client wants КП."""
     from app.services.kp_service import send_kp
@@ -31,8 +31,8 @@ def agent_send_kp():
     return jsonify({"ok": True, "results": result["results"]})
 
 
-@require_auth
 @agent_bp.route("/api/agent/log-call", methods=["POST"])
+@require_auth
 def agent_log_call():
     """Called by Technomax agent to log conversation result."""
     from leads_db import update_lead_status
@@ -72,8 +72,8 @@ def agent_log_call():
     return jsonify({"ok": True})
 
 
-@require_auth
 @agent_bp.route("/api/agent/push-leads", methods=["POST"])
+@require_auth
 def push_leads():
     """Push leads to a Technomax autocall task."""
     from app.services.lead_push_service import push_leads_to_task
@@ -109,8 +109,8 @@ def push_leads():
     return jsonify(result)
 
 
-@require_auth
 @agent_bp.route("/api/agent/create", methods=["POST"])
+@require_auth
 def create_technomax_agent():
     """Create AI agent on Technomax platform."""
     import httpx as _httpx
@@ -153,8 +153,8 @@ def create_technomax_agent():
         return jsonify({"error": str(e)}), 500
 
 
-@require_auth
 @agent_bp.route("/api/calls/start", methods=["POST"])
+@require_auth
 def start_ai_calls():
     """Start AI calls via Pipecat agent (runs in background thread)."""
     from db_conn import get_conn
@@ -186,8 +186,8 @@ def start_ai_calls():
     })
 
 
-@require_auth
 @agent_bp.route("/api/calls/status")
+@require_auth
 def pipecat_status():
     """Check Pipecat agent status."""
     from pipecat_client import PipecatClient
