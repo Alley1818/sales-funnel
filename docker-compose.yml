@@ -11,7 +11,9 @@ services:
       - .env
     environment:
       - EVO_API_URL=http://evolution_api:8080
-      - EVO_API_KEY=your_api_key_here
+      - EVO_API_KEY=${AUTHENTICATION_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - WA_WEBHOOK_SECRET=${WA_WEBHOOK_SECRET:-}
     volumes:
       - ./leads.db:/app/leads.db
       - ./config.json:/app/config.json

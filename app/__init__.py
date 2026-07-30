@@ -119,4 +119,80 @@ def create_app(config_override: dict | None = None) -> Flask:
                     config_bp, technomax_bp, features_bp, advanced_bp]:
             csrf.exempt(bp)
 
+    # Auto-configure Evolution API webhook on startup
+    _setup_evolution_webhook(app)
+
     return app
+
+
+def _setup_evolution_webhook(app: Flask):
+    """Configure Evolution API to send incoming WhatsApp messages to this app."""
+    import threading
+
+    def _configure():
+        import time
+        time.sleep(5)  # Wait for Evolution API to be ready
+        try:
+            import requests as req
+
+            evo_url = os.environ.get("EVO_API_URL", "http://evolution_api:8080").rstrip("/")
+            evo_key = os.environ.get("EVO_API_KEY", "")
+            instance_name = os.environ.get("EVO_INSTANCE", "sales_funnel")
+            # Webhook URL = this Flask app (from Evolution API's perspective = flask-app:5050)
+            webhook_url = os.environ.get("WA_WEBHOOK_URL", "http://flask-app:5050/api/wa/webhook")
+            webhook_secret = os.environ.get("WA_WEBHOOK_SECRET", "")
+
+            if not evo_key:
+                app.logger.warning("EVO_API_KEY not set — skipping webhook config")
+                return
+
+            headers = {"apikey": evo_key, "Content-Type": "application/json"}
+
+            # Check if instance exists, create if not
+            try:
+                r = req.get(f"{evo_url}/instance/fetchInstances", headers=headers, timeout=10)
+                instances = r.json() if r.status_code == 200 else []
+                instance_exists = any(
+                    (i.get("instance", {}).get("instanceName") or i.get("instanceName")) == instance_name
+                    for i in (instances if isinstance(instances, list) else [])
+                )
+            except Exception:
+                instance_exists = False
+
+            if not instance_exists:
+                app.logger.info("Creating Evolution API instance: %s", instance_name)
+                req.post(f"{evo_url}/instance/create", headers=headers, json={
+                    "instanceName": instance_name,
+                    "integration": "WHATSAPP-BAILEYS",
+                    "qrcode": True,
+                }, timeout=15)
+
+            # Configure webhook
+            webhook_events = [
+                "MESSAGES_UPSERT",
+                "CONNECTION_UPDATE",
+            ]
+            payload = {
+                "webhook": {
+                    "enabled": True,
+                    "url": webhook_url,
+                    "events": webhook_events,
+                }
+            }
+            if webhook_secret:
+                payload["webhook"]["headers"] = {"X-Webhook-Secret": webhook_secret}
+
+            r = req.post(
+                f"{evo_url}/webhook/set/{instance_name}",
+                headers=headers, json=payload, timeout=10,
+            )
+            if r.status_code in (200, 201):
+                app.logger.info("Evolution API webhook configured: %s", webhook_url)
+            else:
+                app.logger.warning("Webhook config failed (status %d): %s", r.status_code, r.text[:200])
+
+        except Exception as e:
+            app.logger.error("Evolution API webhook setup failed: %s", e)
+
+    t = threading.Thread(target=_configure, daemon=True)
+    t.start()

@@ -287,12 +287,10 @@ def wa_webhook():
     """Webhook for incoming WhatsApp messages (from Evolution API)."""
     import os
     webhook_secret = os.getenv("WA_WEBHOOK_SECRET", "")
-    if not webhook_secret:
-        logger.error("WA_WEBHOOK_SECRET not configured — rejecting webhook")
-        return jsonify({"error": "Webhook not configured"}), 503
-    token = request.headers.get("X-Webhook-Secret") or request.args.get("token", "")
-    if token != webhook_secret:
-        return jsonify({"error": "Unauthorized"}), 401
+    if webhook_secret:
+        token = request.headers.get("X-Webhook-Secret") or request.args.get("token", "")
+        if token != webhook_secret:
+            return jsonify({"error": "Unauthorized"}), 401
 
     data = request.get_json() or {}
     msg_data = data.get("data", {})
