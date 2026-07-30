@@ -56,7 +56,7 @@ class WhatsAppClient:
             "instanceName": self.config.instance_name,
             "integration": "WHATSAPP-BAILEYS",
             "qrcode": True,
-        })
+        }, timeout=10)
         resp.raise_for_status()
         return resp.json()
 
@@ -64,7 +64,7 @@ class WhatsAppClient:
         """Get QR code URL for connecting WhatsApp."""
         resp = self.session.get(
             f"{self.base}/connect/{self.config.instance_name}"
-        )
+        , timeout=10)
         if resp.status_code == 200:
             data = resp.json()
             return data.get("base64") or data.get("qrcode")
@@ -74,14 +74,14 @@ class WhatsAppClient:
         """Check connection state: open, close, connecting."""
         resp = self.session.get(
             f"{self.base}/connectionState/{self.config.instance_name}"
-        )
+        , timeout=10)
         resp.raise_for_status()
         data = resp.json()
         return data.get("instance", {}).get("state", "unknown")
 
     def fetch_instances(self) -> list:
         """List all instances."""
-        resp = self.session.get(f"{self.base}/fetchInstances")
+        resp = self.session.get(f"{self.base}/fetchInstances", timeout=10)
         resp.raise_for_status()
         return resp.json()
 
@@ -98,7 +98,7 @@ class WhatsAppClient:
             resp = self.session.post(url, json={
                 "number": phone,
                 "text": message,
-            })
+            }, timeout=10)
             data = resp.json()
             if resp.status_code in (200, 201):
                 msg_id = data.get("key", {}).get("id")
@@ -132,7 +132,7 @@ class WhatsAppClient:
                 "media": document_url,
                 "filename": filename,
                 "caption": caption,
-            })
+            }, timeout=10)
             data = resp.json()
             if resp.status_code in (200, 201):
                 msg_id = data.get("key", {}).get("id")
@@ -160,7 +160,7 @@ class WhatsAppClient:
                 "mediatype": "image",
                 "media": image_url,
                 "caption": caption,
-            })
+            }, timeout=10)
             data = resp.json()
             if resp.status_code in (200, 201):
                 msg_id = data.get("key", {}).get("id")
