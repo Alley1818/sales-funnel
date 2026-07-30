@@ -323,10 +323,10 @@
                     <div class="rounded-lg border bg-card shadow-sm">
                         <div class="p-4 border-b flex justify-between"><h3 class="text-sm font-medium">AI Модель (LLM)</h3><span id="llm-badge" class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-secondary text-secondary-foreground">--</span></div>
                         <div class="p-4 space-y-2">
-                            <div><label class="text-xs font-medium text-muted-foreground">Провайдер</label><select id="llm-provider" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"><option value="ollama">Ollama</option><option value="openrouter">OpenRouter</option></select></div>
+                            <div><label class="text-xs font-medium text-muted-foreground">Провайдер</label><select id="llm-provider" onchange="onProviderChange()" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"><option value="ollama">Ollama</option><option value="groq">Groq</option><option value="openrouter">OpenRouter</option><option value="custom">Custom (OpenAI API)</option></select></div>
                             <div><label class="text-xs font-medium text-muted-foreground">Модель</label><input id="llm-model" placeholder="qwen2.5:1.5b" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
                             <div><label class="text-xs font-medium text-muted-foreground">Base URL</label><input id="llm-url" placeholder="http://ollama:11434" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
-                            <div><label class="text-xs font-medium text-muted-foreground">API Key (для OpenRouter)</label><input id="llm-key" type="password" placeholder="sk-..." class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                            <div><label class="text-xs font-medium text-muted-foreground">API Key</label><input id="llm-key" type="password" placeholder="sk-..." class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
                             <div class="grid grid-cols-2 gap-2">
                                 <div><label class="text-xs font-medium text-muted-foreground">Temperature</label><input id="llm-temp" type="number" step="0.1" min="0" max="2" value="0.3" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
                                 <div><label class="text-xs font-medium text-muted-foreground">Max Tokens</label><input id="llm-tokens" type="number" value="500" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
@@ -336,11 +336,54 @@
                         </div>
                     </div>
                     <div class="rounded-lg border bg-card shadow-sm">
+                        <div class="p-4 border-b flex justify-between"><h3 class="text-sm font-medium">Fallback LLM (запасной)</h3><span id="fb-badge" class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-secondary text-secondary-foreground">--</span></div>
+                        <div class="p-4 space-y-2">
+                            <p class="text-xs text-muted-foreground">Используется если основной LLM не отвечает</p>
+                            <div><label class="text-xs font-medium text-muted-foreground">Провайдер</label><select id="fb-provider" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"><option value="ollama">Ollama Cloud</option><option value="groq">Groq</option><option value="openrouter">OpenRouter</option><option value="custom">Custom</option></select></div>
+                            <div><label class="text-xs font-medium text-muted-foreground">Модель</label><input id="fb-model" placeholder="minimax-m3:cloud" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                            <div><label class="text-xs font-medium text-muted-foreground">Base URL</label><input id="fb-url" placeholder="https://api.ollama.com/v1" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                            <div><label class="text-xs font-medium text-muted-foreground">API Key</label><input id="fb-key" type="password" placeholder="..." class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                            <div class="flex gap-2"><button onclick="saveFB()" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Сохранить</button><button onclick="testFB()" class="h-9 px-4 rounded-md border text-sm hover:bg-accent">Тест</button></div>
+                            <div id="fb-msg" class="text-xs"></div>
+                        </div>
+                    </div>
+                    <div class="rounded-lg border bg-card shadow-sm">
                         <div class="p-4 border-b"><h3 class="text-sm font-medium">Промпт WhatsApp агента</h3></div>
                         <div class="p-4 space-y-2">
                             <p class="text-xs text-muted-foreground">Переменные: {company}, {industry}, {stage}, {interest}, {needs}, {objections}, {strategy}, {history}</p>
                             <textarea id="wa-prompt" rows="12" class="flex w-full rounded-md border bg-background px-2 py-1 text-sm mt-1 font-mono text-xs" placeholder="Введите промпт..."></textarea>
                             <div class="flex gap-2"><button onclick="saveWAPrompt()" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Сохранить</button></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- KP & Follow-up Settings -->
+                <div class="grid gap-4 md:grid-cols-2 mt-4">
+                    <div class="rounded-lg border bg-card shadow-sm">
+                        <div class="p-4 border-b"><h3 class="text-sm font-medium">КП и Презентации</h3></div>
+                        <div class="p-4 space-y-3">
+                            <div class="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+                                <input type="file" id="kp-file" accept=".pdf,.docx,.doc,.txt,.md" class="hidden" onchange="uploadKP()">
+                                <button onclick="document.getElementById('kp-file').click()" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Загрузить КП/Презентацию</button>
+                                <p class="text-xs text-muted-foreground mt-2">PDF, DOCX, TXT, MD</p>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><label class="text-xs font-medium text-muted-foreground">Тип</label><select id="kp-type" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"><option value="kp">КП</option><option value="presentation">Презентация</option></select></div>
+                                <div><label class="text-xs font-medium text-muted-foreground">Отрасль</label><input id="kp-industry" placeholder="general" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                            </div>
+                            <div id="kp-list" class="space-y-2 max-h-48 overflow-y-auto"></div>
+                        </div>
+                    </div>
+                    <div class="rounded-lg border bg-card shadow-sm">
+                        <div class="p-4 border-b"><h3 class="text-sm font-medium">Правила Follow-up</h3></div>
+                        <div class="p-4 space-y-2">
+                            <div class="grid grid-cols-3 gap-2">
+                                <div><label class="text-xs font-medium text-muted-foreground">Interested (дней)</label><input id="fu-interested" type="number" value="2" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                                <div><label class="text-xs font-medium text-muted-foreground">Negotiating (дней)</label><input id="fu-negotiating" type="number" value="3" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                                <div><label class="text-xs font-medium text-muted-foreground">Called (дней)</label><input id="fu-called" type="number" value="5" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                            </div>
+                            <div><label class="text-xs font-medium text-muted-foreground">Сообщение (Interested)</label><textarea id="fu-msg-interested" rows="2" class="flex w-full rounded-md border bg-background px-2 text-sm mt-1">Здравствуйте! Хотели бы обсудить наше предложение?</textarea></div>
+                            <div><label class="text-xs font-medium text-muted-foreground">Сообщение (Negotiating)</label><textarea id="fu-msg-negotiating" rows="2" class="flex w-full rounded-md border bg-background px-2 text-sm mt-1">Добрый день! Есть ли вопросы по нашему предложению?</textarea></div>
+                            <div class="flex gap-2"><button onclick="saveFollowup()" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Сохранить</button></div>
                         </div>
                     </div>
                 </div>
@@ -435,7 +478,7 @@ function showPanel(n,el){
     if(n==='leads')loadLeads();
     if(n==='templates')loadTemplates();
     if(n==='newcampaign')loadCampaigns();
-    if(n==='settings'){loadSMTP();loadNotif();loadLLM();loadWAPrompt();}
+    if(n==='settings'){loadSMTP();loadNotif();loadLLM();loadFB();loadWAPrompt();loadKPList();loadFollowupRules();}
     // Close mobile sidebar
     if(window.innerWidth<768){document.getElementById('sidebar').classList.add('hidden');document.getElementById('sidebar').classList.remove('flex');document.getElementById('sidebar-overlay').classList.remove('show')}
 }
@@ -644,13 +687,69 @@ async function saveBitrix(){try{await fetch('/api/config/bitrix',{method:'POST',
 async function syncBitrix(){try{const d=await(await fetch('/api/bitrix/sync',{method:'POST'})).json();document.getElementById('bx-msg').innerHTML=d.ok?'<span class="text-green-600">Синхронизировано: '+d.synced+' контактов</span>':'<span class="text-red-600">'+(d.error||'Ошибка')+'</span>'}catch(e){toast('Ошибка','error')}}
 
 // ---- LLM Config ----
-async function loadLLM(){try{const d=await(await fetch('/api/config/llm')).json();document.getElementById('llm-provider').value=d.provider||'ollama';document.getElementById('llm-model').value=d.model||'';document.getElementById('llm-url').value=d.base_url||'';document.getElementById('llm-temp').value=d.temperature||0.3;document.getElementById('llm-tokens').value=d.max_tokens||500;const b=document.getElementById('llm-badge');b.textContent=d.provider||'ollama';b.className='inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-green-100 text-green-800'}catch(e){}}
+function onProviderChange(){const p=document.getElementById('llm-provider').value;const urlEl=document.getElementById('llm-url');const keyEl=document.getElementById('llm-key');if(p==='ollama'){urlEl.placeholder='http://ollama:11434';keyEl.placeholder='Не требуется'}else if(p==='groq'){urlEl.placeholder='https://api.groq.com/openai/v1';keyEl.placeholder='gsk_...'}else if(p==='openrouter'){urlEl.placeholder='https://openrouter.ai/api/v1';keyEl.placeholder='sk-or-...'}else{urlEl.placeholder='https://api.example.com/v1';keyEl.placeholder='sk-...'}}
+async function loadLLM(){try{const d=await(await fetch('/api/config/llm')).json();document.getElementById('llm-provider').value=d.provider||'ollama';document.getElementById('llm-model').value=d.model||'';document.getElementById('llm-url').value=d.base_url||'';document.getElementById('llm-temp').value=d.temperature||0.3;document.getElementById('llm-tokens').value=d.max_tokens||500;const b=document.getElementById('llm-badge');b.textContent=d.provider||'ollama';b.className='inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-green-100 text-green-800';onProviderChange()}catch(e){}}
 async function saveLLM(){try{await fetch('/api/config/llm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:document.getElementById('llm-provider').value,model:document.getElementById('llm-model').value,base_url:document.getElementById('llm-url').value,api_key:document.getElementById('llm-key').value,temperature:parseFloat(document.getElementById('llm-temp').value),max_tokens:parseInt(document.getElementById('llm-tokens').value)})});toast('LLM сохранён','success');loadLLM()}catch(e){toast('Ошибка','error')}}
-async function testLLM(){const msg=document.getElementById('llm-msg');msg.innerHTML='<span class="text-muted-foreground">Тестирую...</span>';try{const r=await fetch('/api/config/llm');const d=await r.json();msg.innerHTML='<span class="text-green-600">Модель: '+d.model+' | Провайдер: '+d.provider+'</span>'}catch(e){msg.innerHTML='<span class="text-red-600">Ошибка</span>'}}
+async function testLLM(){const msg=document.getElementById('llm-msg');msg.innerHTML='<span class="text-muted-foreground">Тестирую соединение...</span>';try{const r=await fetch('/api/config/llm/test',{method:'POST'});const d=await r.json();if(d.success){msg.innerHTML='<span class="text-green-600">Успех! '+d.provider+'/'+d.model+'</span><br><span class="text-xs text-muted-foreground">'+d.reply+'</span>'}else{msg.innerHTML='<span class="text-red-600">Ошибка: '+(d.error||'Неизвестная ошибка')+'</span>'}}catch(e){msg.innerHTML='<span class="text-red-600">Ошибка подключения</span>'}}
+
+// ---- Fallback LLM Config ----
+async function loadFB(){try{const d=await(await fetch('/api/config/llm-fallback')).json();document.getElementById('fb-provider').value=d.provider||'ollama';document.getElementById('fb-model').value=d.model||'';document.getElementById('fb-url').value=d.base_url||'';const b=document.getElementById('fb-badge');b.textContent=d.api_key_set?(d.provider||'ollama')+' (настроен)':'не настроен';b.className='inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold '+(d.api_key_set?'bg-green-100 text-green-800':'bg-secondary text-secondary-foreground')}catch(e){}}
+async function saveFB(){const key=document.getElementById('fb-key').value;const body={provider:document.getElementById('fb-provider').value,model:document.getElementById('fb-model').value,base_url:document.getElementById('fb-url').value};if(key)body.api_key=key;try{await fetch('/api/config/llm-fallback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});toast('Fallback сохранён','success');loadFB()}catch(e){toast('Ошибка','error')}}
+async function testFB(){const msg=document.getElementById('fb-msg');msg.innerHTML='<span class="text-muted-foreground">Тестирую...</span>';try{const r=await fetch('/api/config/llm-fallback/test',{method:'POST'});const d=await r.json();if(d.success){msg.innerHTML='<span class="text-green-600">Успех! '+d.model+'</span><br><span class="text-xs text-muted-foreground">'+d.reply+'</span>'}else{msg.innerHTML='<span class="text-red-600">Ошибка: '+(d.error||'Неизвестная ошибка')+'</span>'}}catch(e){msg.innerHTML='<span class="text-red-600">Ошибка подключения</span>'}}
 
 // ---- WA Agent Prompt ----
 async function loadWAPrompt(){try{const d=await(await fetch('/api/config/wa-prompt')).json();document.getElementById('wa-prompt').value=d.prompt||''}catch(e){}}
 async function saveWAPrompt(){try{await fetch('/api/config/wa-prompt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:document.getElementById('wa-prompt').value})});toast('Промпт сохранён','success')}catch(e){toast('Ошибка','error')}}
+
+// ---- KP Upload ----
+async function uploadKP(){
+    const fileInput=document.getElementById('kp-file');
+    const file=fileInput.files[0];
+    if(!file){toast('Выберите файл','error');return}
+    const fd=new FormData();
+    fd.append('file',file);
+    fd.append('type',document.getElementById('kp-type').value);
+    fd.append('industry',document.getElementById('kp-industry').value||'general');
+    try{
+        const r=await fetch('/api/kp/upload',{method:'POST',body:fd});
+        const d=await r.json();
+        if(r.ok){toast('КП загружено','success');fileInput.value='';loadKPList()}
+        else{toast(d.error||'Ошибка загрузки','error')}
+    }catch(e){toast('Ошибка загрузки','error')}
+}
+async function loadKPList(){
+    try{
+        const d=await(await fetch('/api/kp/list')).json();
+        const el=document.getElementById('kp-list');
+        if(!d.files||!d.files.length){el.innerHTML='<p class="text-xs text-muted-foreground text-center py-2">Нет загруженных КП</p>';return}
+        el.innerHTML=d.files.map(f=>'<div class="flex items-center justify-between p-2 rounded border text-xs"><div class="truncate flex-1"><span class="font-medium">'+f.filename+'</span><span class="text-muted-foreground ml-2">'+(f.type||'')+'</span><span class="text-muted-foreground ml-2">'+(f.industry||'')+'</span></div><button onclick="deleteKP('+f.id+')" class="text-red-600 hover:underline ml-2 shrink-0">Удалить</button></div>').join('')
+    }catch(e){}
+}
+async function deleteKP(id){try{await fetch('/api/kp/'+id,{method:'DELETE'});toast('Удалено','success');loadKPList()}catch(e){toast('Ошибка','error')}}
+
+// ---- Follow-up Rules ----
+async function loadFollowupRules(){
+    try{
+        const d=await(await fetch('/api/followup/rules')).json();
+        if(d.interested_days!=null)document.getElementById('fu-interested').value=d.interested_days;
+        if(d.negotiating_days!=null)document.getElementById('fu-negotiating').value=d.negotiating_days;
+        if(d.called_days!=null)document.getElementById('fu-called').value=d.called_days;
+        if(d.msg_interested)document.getElementById('fu-msg-interested').value=d.msg_interested;
+        if(d.msg_negotiating)document.getElementById('fu-msg-negotiating').value=d.msg_negotiating;
+    }catch(e){}
+}
+async function saveFollowup(){
+    try{
+        await fetch('/api/followup/rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+            interested_days:parseInt(document.getElementById('fu-interested').value)||2,
+            negotiating_days:parseInt(document.getElementById('fu-negotiating').value)||3,
+            called_days:parseInt(document.getElementById('fu-called').value)||5,
+            msg_interested:document.getElementById('fu-msg-interested').value,
+            msg_negotiating:document.getElementById('fu-msg-negotiating').value
+        })});
+        toast('Правила follow-up сохранены','success')
+    }catch(e){toast('Ошибка','error')}
+}
 
 // ---- AUTH ----
 const AUTH_TOKEN_KEY='sf_auth_token';

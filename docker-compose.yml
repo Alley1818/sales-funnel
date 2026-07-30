@@ -23,6 +23,8 @@ services:
       - ./config.json:/app/config.json
       - ./.auth.json:/app/.auth.json
       - ./sales_funnel.log:/app/sales_funnel.log
+      - ./uploads:/app/uploads
+      - ./data:/app/data
     depends_on:
       evolution-api:
         condition: service_healthy

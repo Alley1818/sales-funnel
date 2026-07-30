@@ -101,6 +101,7 @@ def create_app(config_override: dict | None = None) -> Flask:
     from app.api.features import features_bp
     from app.api.advanced import advanced_bp
     from app.api.agent_tools import agent_tools_bp
+    from app.api.kp import kp_bp
 
     app.register_blueprint(core_bp)
     app.register_blueprint(leads_bp)
@@ -111,6 +112,7 @@ def create_app(config_override: dict | None = None) -> Flask:
     app.register_blueprint(features_bp)
     app.register_blueprint(advanced_bp)
     app.register_blueprint(agent_tools_bp, url_prefix="/api/agent")
+    app.register_blueprint(kp_bp)
 
     # Exempt all API blueprints from CSRF (JSON API with Bearer auth)
     csrf = app.extensions.get("csrf_protect")

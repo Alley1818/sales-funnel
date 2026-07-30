@@ -3,11 +3,12 @@ WhatsApp AI Agent Service — auto-replies to incoming WhatsApp messages.
 
 Flow:
 1. Incoming message arrives → process_incoming_message(phone, message)
-2. Find lead by phone, get timeline + context
-3. Build XML-structured prompt with role, context, history, rules
-4. Call OpenRouter LLM
-5. Parse JSON actions from LLM response
-6. Execute actions (send_wa, update_status, schedule_callback, escalate)
+2. Find lead by phone
+3. Try new agent module (AIBrain) with tool calling + vector memory
+4. If agent module unavailable/fails → legacy fallback:
+   a. Get timeline + context, build XML prompt, call LLM, parse JSON actions
+   b. Execute actions (send_wa, update_status, schedule_callback, escalate)
+5. Send WhatsApp reply via _send_reply
 """
 import json
 import logging
@@ -57,6 +58,22 @@ def _get_llm_config() -> dict:
     }
 
 
+def _get_fallback_llm_config() -> dict | None:
+    """Get fallback LLM configuration from config.json. Returns None if not configured."""
+    cfg = _load_config()
+    fb = cfg.get("llm_fallback", {})
+    if not fb.get("api_key") and not fb.get("base_url"):
+        return None
+    return {
+        "provider": fb.get("provider", "ollama"),
+        "model": fb.get("model", ""),
+        "api_key": fb.get("api_key", ""),
+        "base_url": fb.get("base_url", ""),
+        "temperature": fb.get("temperature", 0.3),
+        "max_tokens": fb.get("max_tokens", 500),
+    }
+
+
 def _get_wa_agent_prompt() -> str:
     """Get WhatsApp agent prompt from config.json."""
     cfg = _load_config()
@@ -71,11 +88,15 @@ def process_incoming_message(phone: str, message: str) -> dict:
     """
     Process an incoming WhatsApp message.
 
+    Uses the new agent module (AIBrain) when available for smarter tool-calling
+    and context-aware responses. Falls back to legacy LLM pipeline if the agent
+    module fails or is not installed.
+
     Steps:
       - Find lead by phone number
-      - Get conversation timeline and lead context
-      - Build prompt, call LLM, parse response
-      - Execute actions returned by LLM
+      - Try new agent module (AIBrain) → tool calling, vector memory, scheduling
+      - On failure, fall back to legacy prompt → LLM → parse actions pipeline
+      - Send WhatsApp reply via _send_reply
 
     Returns dict with keys: lead_id, reply (str), actions_taken (list), error (str|None)
     """
@@ -86,6 +107,63 @@ def process_incoming_message(phone: str, message: str) -> dict:
 
     lead_id = lead["id"]
 
+    # --- Try new agent module (AIBrain) first ---
+    try:
+        from agent import process_incoming_message as agent_process
+        logger.info("Using new agent module (AIBrain) for lead %d", lead_id)
+
+        agent_result = agent_process(lead_id, lead, message)
+
+        reply = agent_result.get("reply", "")
+        actions = agent_result.get("actions", [])
+        tool_results = agent_result.get("tool_results", [])
+
+        # Send the conversational reply via WhatsApp
+        if reply:
+            _send_reply(lead_id, reply)
+
+        # Also log to agent_sync for backward compatibility with dashboards/reports
+        _log_wa_message(lead_id, "inbound", message)
+        if reply:
+            _log_wa_message(lead_id, "outbound", reply)
+
+        # Map agent actions to legacy actions_taken format
+        actions_taken = []
+        for action in actions:
+            action_type = action.get("type", "unknown")
+            actions_taken.append(action_type)
+        for tr in tool_results:
+            if isinstance(tr, dict) and not tr.get("success", True):
+                actions_taken.append(f"tool_error:{tr.get('error', 'unknown')}")
+
+        return {
+            "lead_id": lead_id,
+            "reply": reply,
+            "actions_taken": actions_taken,
+            "error": None,
+        }
+
+    except ImportError:
+        logger.info("Agent module not installed, using legacy pipeline for lead %d", lead_id)
+    except Exception as e:
+        logger.warning("Agent module failed for lead %d, falling back to legacy: %s", lead_id, e)
+
+    # --- Legacy fallback ---
+    return _process_legacy(lead_id, message, lead)
+
+
+def _process_legacy(lead_id: int, message: str, lead: dict) -> dict:
+    """
+    Legacy message processing pipeline (original hardcoded logic).
+
+    Steps:
+      - Log inbound message to conversation history
+      - Get conversation timeline and lead context
+      - Build XML-structured prompt, call LLM, parse JSON response
+      - Execute actions (send_wa, update_status, schedule_callback, escalate)
+
+    Returns dict with keys: lead_id, reply, actions_taken, error.
+    """
     # Log inbound message to conversation history
     _log_wa_message(lead_id, "inbound", message)
 
@@ -238,16 +316,44 @@ def build_prompt(lead: dict, timeline: list[dict], context: dict) -> str:
 def call_llm(system_prompt: str, user_message: str) -> str | None:
     """
     Call LLM API with system prompt and user message.
-    Supports OpenRouter and Ollama.
+    Supports Ollama, OpenRouter, Groq, and custom OpenAI-compatible APIs.
+    Tries primary provider first, then fallback if configured.
     Returns raw LLM response text or None on failure.
     """
+    # Try primary provider
     llm_cfg = _get_llm_config()
+    result = _call_llm_provider(system_prompt, user_message, llm_cfg)
+    if result is not None:
+        return result
+
+    # Try fallback provider
+    fallback_cfg = _get_fallback_llm_config()
+    if fallback_cfg:
+        logger.warning("Primary LLM (%s) failed, trying fallback (%s)",
+                       llm_cfg["provider"], fallback_cfg["provider"])
+        result = _call_llm_provider(system_prompt, user_message, fallback_cfg)
+        if result is not None:
+            logger.info("Fallback LLM (%s) succeeded", fallback_cfg["provider"])
+            return result
+        logger.error("Both primary and fallback LLM providers failed")
+
+    return None
+
+
+def _call_llm_provider(system_prompt: str, user_message: str, llm_cfg: dict) -> str | None:
+    """Route LLM call to the correct provider."""
     provider = llm_cfg["provider"].lower()
-    
+
     if provider == "ollama":
+        # Check if this is Ollama Cloud (has api_key) or local Ollama
+        if llm_cfg.get("api_key"):
+            return _call_openai_compatible(system_prompt, user_message, llm_cfg)
         return _call_ollama(system_prompt, user_message, llm_cfg)
+    elif provider == "groq":
+        return _call_groq(system_prompt, user_message, llm_cfg)
     else:
-        return _call_openrouter(system_prompt, user_message, llm_cfg)
+        # openrouter / custom — both use OpenAI-compatible API
+        return _call_openai_compatible(system_prompt, user_message, llm_cfg)
 
 
 def _call_ollama(system_prompt: str, user_message: str, llm_cfg: dict) -> str | None:
@@ -284,14 +390,15 @@ def _call_ollama(system_prompt: str, user_message: str, llm_cfg: dict) -> str | 
         return None
 
 
-def _call_openrouter(system_prompt: str, user_message: str, llm_cfg: dict) -> str | None:
-    """Call OpenRouter API."""
-    api_key = llm_cfg.get("api_key") or _get_openrouter_key()
+def _call_groq(system_prompt: str, user_message: str, llm_cfg: dict) -> str | None:
+    """Call Groq API (https://api.groq.com/openai/v1)."""
+    api_key = llm_cfg.get("api_key", "")
     if not api_key:
-        logger.error("No OpenRouter API key configured")
+        logger.error("No Groq API key configured")
         return None
 
-    url = "https://openrouter.ai/api/v1/chat/completions"
+    base_url = llm_cfg.get("base_url", "https://api.groq.com/openai/v1")
+    url = f"{base_url.rstrip('/')}/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -311,13 +418,51 @@ def _call_openrouter(system_prompt: str, user_message: str, llm_cfg: dict) -> st
         resp.raise_for_status()
         data = resp.json()
         content = data["choices"][0]["message"]["content"]
-        logger.info("OpenRouter response received (%d chars)", len(content))
+        logger.info("Groq response received (%d chars)", len(content))
         return content
     except requests.RequestException as e:
-        logger.error("OpenRouter API error: %s", e)
+        logger.error("Groq API error: %s", e)
         return None
     except (KeyError, IndexError) as e:
-        logger.error("Unexpected OpenRouter response format: %s", e)
+        logger.error("Unexpected Groq response format: %s", e)
+        return None
+
+
+def _call_openai_compatible(system_prompt: str, user_message: str, llm_cfg: dict) -> str | None:
+    """Call any OpenAI-compatible API (OpenRouter, custom endpoint)."""
+    api_key = llm_cfg.get("api_key") or _get_openrouter_key()
+    if not api_key:
+        logger.error("No API key configured for OpenAI-compatible provider")
+        return None
+
+    base_url = llm_cfg.get("base_url", "https://openrouter.ai/api/v1")
+    url = f"{base_url.rstrip('/')}/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": llm_cfg["model"],
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+        "temperature": llm_cfg["temperature"],
+        "max_tokens": llm_cfg["max_tokens"],
+    }
+
+    try:
+        resp = requests.post(url, headers=headers, json=payload, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        content = data["choices"][0]["message"]["content"]
+        logger.info("LLM response received (%d chars)", len(content))
+        return content
+    except requests.RequestException as e:
+        logger.error("LLM API error: %s", e)
+        return None
+    except (KeyError, IndexError) as e:
+        logger.error("Unexpected LLM response format: %s", e)
         return None
 
 

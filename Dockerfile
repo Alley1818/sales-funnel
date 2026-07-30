@@ -11,8 +11,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Install additional deps for file processing
+RUN pip install --no-cache-dir pymupdf python-docx
+
 # Copy application
 COPY . .
+
+# Create directories for uploads and data
+RUN mkdir -p /app/uploads/kp /app/data/chromadb
 
 # Default port
 ENV PORT=5050

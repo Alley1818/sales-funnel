@@ -53,6 +53,21 @@ def init_sync_tables():
         CREATE INDEX IF NOT EXISTS idx_conv_channel ON conversations(channel);
         CREATE INDEX IF NOT EXISTS idx_conv_event ON conversations(event_type);
         CREATE INDEX IF NOT EXISTS idx_conv_created ON conversations(created_at);
+
+        CREATE TABLE IF NOT EXISTS scheduled_actions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lead_id INTEGER NOT NULL,
+            action_type TEXT NOT NULL,
+            scheduled_at TEXT NOT NULL,
+            reason TEXT,
+            status TEXT DEFAULT 'pending',
+            executed_at TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_scheduled_lead ON scheduled_actions(lead_id);
+        CREATE INDEX IF NOT EXISTS idx_scheduled_status ON scheduled_actions(status);
+        CREATE INDEX IF NOT EXISTS idx_scheduled_at ON scheduled_actions(scheduled_at);
     """)
     conn.commit()
 

@@ -65,6 +65,19 @@ def db_conn(tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def _block_agent_module():
+    """Prevent agent package import (triggers ChromaDB init which hangs).
+
+    Setting sys.modules['agent'] = None causes ``from agent import X``
+    to raise ImportError, which the except clause in
+    wa_agent_service.process_incoming_message() catches, falling through
+    to the legacy call_llm pipeline.
+    """
+    with patch.dict(sys.modules, {"agent": None}):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def _mute_telegram():
     """Prevent real Telegram notifications during tests."""
     with patch("telegram_notifier._send_telegram_sync", return_value=True):
@@ -242,9 +255,14 @@ class TestCallLLM:
 
     def test_no_api_key(self):
         from wa_agent_service import call_llm
-        with patch("wa_agent_service._get_openrouter_key", return_value=""):
-            result = call_llm("system", "user")
-            assert result is None
+        with patch("wa_agent_service._get_llm_config", return_value={
+            "provider": "groq", "model": "llama-3.3-70b-versatile",
+            "api_key": "", "base_url": "https://api.groq.com/openai/v1",
+            "temperature": 0.3, "max_tokens": 500,
+        }):
+            with patch("wa_agent_service._get_fallback_llm_config", return_value=None):
+                result = call_llm("system", "user")
+                assert result is None
 
     def test_successful_call(self):
         from wa_agent_service import call_llm
@@ -255,23 +273,29 @@ class TestCallLLM:
             "choices": [{"message": {"content": '{"reply": "Привет!", "actions": []}'}}]
         }
 
-        with patch.dict(os.environ, {"LLM_PROVIDER": "openrouter"}):
-            with patch("wa_agent_service._get_openrouter_key", return_value="test-key"):
-                with patch("wa_agent_service.requests.post", return_value=mock_resp) as mock_post:
-                    result = call_llm("system prompt", "hello")
-                    assert result == '{"reply": "Привет!", "actions": []}'
-                    mock_post.assert_called_once()
-                    call_args = mock_post.call_args
-                    assert "openrouter.ai" in call_args[0][0]
+        with patch("wa_agent_service._get_llm_config", return_value={
+            "provider": "groq", "model": "llama-3.3-70b-versatile",
+            "api_key": "test-key", "base_url": "https://api.groq.com/openai/v1",
+            "temperature": 0.3, "max_tokens": 500,
+        }):
+            with patch("wa_agent_service.requests.post", return_value=mock_resp) as mock_post:
+                result = call_llm("system prompt", "hello")
+                assert result == '{"reply": "Привет!", "actions": []}'
+                mock_post.assert_called_once()
+                call_args = mock_post.call_args
+                assert "groq.com" in call_args[0][0]
 
     def test_api_error(self):
         import requests as req_lib
         from wa_agent_service import call_llm
-        with patch.dict(os.environ, {"LLM_PROVIDER": "openrouter"}):
-            with patch("wa_agent_service._get_openrouter_key", return_value="test-key"):
-                with patch("wa_agent_service.requests.post", side_effect=req_lib.RequestException("timeout")):
-                    result = call_llm("system", "user")
-                    assert result is None
+        with patch("wa_agent_service._get_llm_config", return_value={
+            "provider": "groq", "model": "llama-3.3-70b-versatile",
+            "api_key": "test-key", "base_url": "https://api.groq.com/openai/v1",
+            "temperature": 0.3, "max_tokens": 500,
+        }):
+            with patch("wa_agent_service.requests.post", side_effect=req_lib.RequestException("timeout")):
+                result = call_llm("system", "user")
+                assert result is None
 
     def test_unexpected_response_format(self):
         from wa_agent_service import call_llm
@@ -280,11 +304,14 @@ class TestCallLLM:
         mock_resp.raise_for_status = MagicMock()
         mock_resp.json.return_value = {"unexpected": "format"}
 
-        with patch.dict(os.environ, {"LLM_PROVIDER": "openrouter"}):
-            with patch("wa_agent_service._get_openrouter_key", return_value="test-key"):
-                with patch("wa_agent_service.requests.post", return_value=mock_resp):
-                    result = call_llm("system", "user")
-                    assert result is None
+        with patch("wa_agent_service._get_llm_config", return_value={
+            "provider": "groq", "model": "llama-3.3-70b-versatile",
+            "api_key": "test-key", "base_url": "https://api.groq.com/openai/v1",
+            "temperature": 0.3, "max_tokens": 500,
+        }):
+            with patch("wa_agent_service.requests.post", return_value=mock_resp):
+                result = call_llm("system", "user")
+                assert result is None
 
 
 # ---------------------------------------------------------------------------

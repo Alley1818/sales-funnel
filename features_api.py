@@ -292,6 +292,22 @@ def register_feature_routes(app: Flask):
             mid = log_incoming_wa(phone, message)
             logger.info("Incoming WA from %s: %s (id=%s)", phone, message[:50], mid)
 
+            # Auto-reply via AI agent service
+            try:
+                from app.services.wa_agent_service import process_incoming_message
+                logger.info("Processing auto-reply for %s (msg_id=%s)", phone, mid)
+                result = process_incoming_message(phone, message)
+                logger.info(
+                    "Auto-reply result for %s: lead_id=%s, reply_len=%d, actions=%s, error=%s",
+                    phone,
+                    result.get("lead_id"),
+                    len(result.get("reply", "")),
+                    result.get("actions_taken"),
+                    result.get("error"),
+                )
+            except Exception as e:
+                logger.error("Auto-reply failed for %s: %s", phone, e, exc_info=True)
+
         return jsonify({"ok": True})
 
     # ==================== BITRIX24 ====================
