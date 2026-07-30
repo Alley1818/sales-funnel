@@ -197,14 +197,59 @@ def build_prompt(lead: dict, timeline: list[dict], context: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 3. call_llm — OpenRouter API call
+# 3. call_llm — LLM API call (OpenRouter or Ollama)
 # ---------------------------------------------------------------------------
 
 def call_llm(system_prompt: str, user_message: str) -> str | None:
     """
-    Call OpenRouter API with system prompt and user message.
+    Call LLM API with system prompt and user message.
+    Supports OpenRouter and Ollama.
     Returns raw LLM response text or None on failure.
     """
+    provider = os.environ.get("LLM_PROVIDER", "ollama").lower()
+    
+    if provider == "ollama":
+        return _call_ollama(system_prompt, user_message)
+    else:
+        return _call_openrouter(system_prompt, user_message)
+
+
+def _call_ollama(system_prompt: str, user_message: str) -> str | None:
+    """Call Ollama API."""
+    ollama_url = os.environ.get("OLLAMA_URL", "http://ollama:11434")
+    model = os.environ.get("LLM_MODEL", "qwen2.5:1.5b")
+    
+    url = f"{ollama_url}/api/chat"
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+        "stream": False,
+        "options": {
+            "temperature": 0.3,
+            "num_predict": 500,
+        },
+    }
+    
+    try:
+        resp = requests.post(url, json=payload, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+        content = data.get("message", {}).get("content", "")
+        logger.info("Ollama response received (%d chars)", len(content))
+        return content
+    except requests.RequestException as e:
+        logger.error("Ollama API error: %s", e)
+        return None
+    except (KeyError, IndexError) as e:
+        logger.error("Unexpected Ollama response format: %s", e)
+        return None
+
+
+def _call_openrouter(system_prompt: str, user_message: str) -> str | None:
+    """Call OpenRouter API."""
     api_key = _get_openrouter_key()
     if not api_key:
         logger.error("No OpenRouter API key configured")
@@ -216,7 +261,7 @@ def call_llm(system_prompt: str, user_message: str) -> str | None:
         "Content-Type": "application/json",
     }
     payload = {
-        "model": "xiaomi/mimo-v2.5-pro",
+        "model": os.environ.get("LLM_MODEL", "xiaomi/mimo-v2.5-pro"),
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
@@ -230,13 +275,13 @@ def call_llm(system_prompt: str, user_message: str) -> str | None:
         resp.raise_for_status()
         data = resp.json()
         content = data["choices"][0]["message"]["content"]
-        logger.info("LLM response received (%d chars)", len(content))
+        logger.info("OpenRouter response received (%d chars)", len(content))
         return content
     except requests.RequestException as e:
         logger.error("OpenRouter API error: %s", e)
         return None
     except (KeyError, IndexError) as e:
-        logger.error("Unexpected LLM response format: %s", e)
+        logger.error("Unexpected OpenRouter response format: %s", e)
         return None
 
 

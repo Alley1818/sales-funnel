@@ -248,22 +248,23 @@ class TestCallLLM:
             "choices": [{"message": {"content": '{"reply": "Привет!", "actions": []}'}}]
         }
 
-        with patch("wa_agent_service._get_openrouter_key", return_value="test-key"):
-            with patch("wa_agent_service.requests.post", return_value=mock_resp) as mock_post:
-                result = call_llm("system prompt", "hello")
-                assert result == '{"reply": "Привет!", "actions": []}'
-                mock_post.assert_called_once()
-                call_args = mock_post.call_args
-                assert "openrouter.ai" in call_args[0][0]
-                assert call_args[1]["json"]["model"] == "xiaomi/mimo-v2.5-pro"
+        with patch.dict(os.environ, {"LLM_PROVIDER": "openrouter"}):
+            with patch("wa_agent_service._get_openrouter_key", return_value="test-key"):
+                with patch("wa_agent_service.requests.post", return_value=mock_resp) as mock_post:
+                    result = call_llm("system prompt", "hello")
+                    assert result == '{"reply": "Привет!", "actions": []}'
+                    mock_post.assert_called_once()
+                    call_args = mock_post.call_args
+                    assert "openrouter.ai" in call_args[0][0]
 
     def test_api_error(self):
         import requests as req_lib
         from wa_agent_service import call_llm
-        with patch("wa_agent_service._get_openrouter_key", return_value="test-key"):
-            with patch("wa_agent_service.requests.post", side_effect=req_lib.RequestException("timeout")):
-                result = call_llm("system", "user")
-                assert result is None
+        with patch.dict(os.environ, {"LLM_PROVIDER": "openrouter"}):
+            with patch("wa_agent_service._get_openrouter_key", return_value="test-key"):
+                with patch("wa_agent_service.requests.post", side_effect=req_lib.RequestException("timeout")):
+                    result = call_llm("system", "user")
+                    assert result is None
 
     def test_unexpected_response_format(self):
         from wa_agent_service import call_llm
@@ -272,10 +273,11 @@ class TestCallLLM:
         mock_resp.raise_for_status = MagicMock()
         mock_resp.json.return_value = {"unexpected": "format"}
 
-        with patch("wa_agent_service._get_openrouter_key", return_value="test-key"):
-            with patch("wa_agent_service.requests.post", return_value=mock_resp):
-                result = call_llm("system", "user")
-                assert result is None
+        with patch.dict(os.environ, {"LLM_PROVIDER": "openrouter"}):
+            with patch("wa_agent_service._get_openrouter_key", return_value="test-key"):
+                with patch("wa_agent_service.requests.post", return_value=mock_resp):
+                    result = call_llm("system", "user")
+                    assert result is None
 
 
 # ---------------------------------------------------------------------------

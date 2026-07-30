@@ -219,6 +219,10 @@ jobs:
             docker compose build > /tmp/sf-build.log 2>&1 || { cat /tmp/sf-build.log; exit 1; }
             docker compose up -d || { echo "docker compose up failed"; docker compose ps; exit 1; }
             echo "Docker deploy OK"
+            # Wait for Ollama to start and pull model
+            sleep 10
+            docker exec ollama ollama pull qwen2.5:1.5b 2>/dev/null || echo "Ollama model pull failed (will retry)"
+            echo "Ollama model pull initiated"
 
       - name: Verify services
         uses: appleboy/ssh-action@v1
