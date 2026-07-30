@@ -121,3 +121,71 @@ def test_notification():
     from telegram_notifier import _send_telegram_sync
     ok = _send_telegram_sync("<b>Test</b> — Sales Funnel Telegram notification works!")
     return jsonify({"success": ok})
+
+
+# ---- LLM Config ----
+
+@config_bp.route("/api/config/llm", methods=["GET"])
+@require_auth
+def get_llm_config():
+    """Get LLM configuration."""
+    cfg = current_app.config["load_config"]()
+    llm = cfg.get("llm", {})
+    return jsonify({
+        "provider": llm.get("provider", "ollama"),
+        "model": llm.get("model", "qwen2.5:1.5b"),
+        "base_url": llm.get("base_url", "http://ollama:11434"),
+        "temperature": llm.get("temperature", 0.3),
+        "max_tokens": llm.get("max_tokens", 500),
+        "api_key_set": bool(llm.get("api_key")),
+    })
+
+
+@config_bp.route("/api/config/llm", methods=["POST"])
+@require_auth
+def set_llm_config():
+    """Update LLM configuration."""
+    data = request.get_json() or {}
+    cfg = current_app.config["load_config"]()
+
+    if "llm" not in cfg:
+        cfg["llm"] = {}
+
+    llm = cfg["llm"]
+    if "provider" in data:
+        llm["provider"] = data["provider"]
+    if "model" in data:
+        llm["model"] = data["model"]
+    if "base_url" in data:
+        llm["base_url"] = data["base_url"]
+    if "temperature" in data:
+        llm["temperature"] = float(data["temperature"])
+    if "max_tokens" in data:
+        llm["max_tokens"] = int(data["max_tokens"])
+    if "api_key" in data:
+        llm["api_key"] = data["api_key"]
+
+    cfg["llm"] = llm
+    current_app.config["save_config"](cfg)
+    return jsonify({"ok": True})
+
+
+# ---- WA Agent Prompt ----
+
+@config_bp.route("/api/config/wa-prompt", methods=["GET"])
+@require_auth
+def get_wa_prompt():
+    """Get WhatsApp agent prompt."""
+    cfg = current_app.config["load_config"]()
+    return jsonify({"prompt": cfg.get("wa_agent_prompt", "")})
+
+
+@config_bp.route("/api/config/wa-prompt", methods=["POST"])
+@require_auth
+def set_wa_prompt():
+    """Update WhatsApp agent prompt."""
+    data = request.get_json() or {}
+    cfg = current_app.config["load_config"]()
+    cfg["wa_agent_prompt"] = data.get("prompt", "")
+    current_app.config["save_config"](cfg)
+    return jsonify({"ok": True})

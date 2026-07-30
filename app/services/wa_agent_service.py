@@ -39,8 +39,28 @@ def _get_openrouter_key() -> str:
     key = os.environ.get("OPENROUTER_API_KEY", "")
     if not key:
         cfg = _load_config()
-        key = cfg.get("openrouter_api_key", "")
+        key = cfg.get("llm", {}).get("api_key", "") or cfg.get("openrouter_api_key", "")
     return key
+
+
+def _get_llm_config() -> dict:
+    """Get LLM configuration from config.json with env overrides."""
+    cfg = _load_config()
+    llm = cfg.get("llm", {})
+    return {
+        "provider": os.environ.get("LLM_PROVIDER", llm.get("provider", "ollama")),
+        "model": os.environ.get("LLM_MODEL", llm.get("model", "qwen2.5:1.5b")),
+        "api_key": llm.get("api_key", ""),
+        "base_url": os.environ.get("OLLAMA_URL", llm.get("base_url", "http://ollama:11434")),
+        "temperature": llm.get("temperature", 0.3),
+        "max_tokens": llm.get("max_tokens", 500),
+    }
+
+
+def _get_wa_agent_prompt() -> str:
+    """Get WhatsApp agent prompt from config.json."""
+    cfg = _load_config()
+    return cfg.get("wa_agent_prompt", "")
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +118,7 @@ def process_incoming_message(phone: str, message: str) -> dict:
 def build_prompt(lead: dict, timeline: list[dict], context: dict) -> str:
     """
     Construct an XML-structured system prompt with:
-      - Role definition
+      - Role definition (from config.json wa_agent_prompt or default)
       - Lead context (company, industry, stage, interests)
       - Conversation history
       - Response rules and action format
@@ -145,6 +165,21 @@ def build_prompt(lead: dict, timeline: list[dict], context: dict) -> str:
     else:
         strategy = "Закрывай на конкретные шаги. Предложи договор, пилот, встречу."
 
+    # Try to use prompt from config.json
+    config_prompt = _get_wa_agent_prompt()
+    if config_prompt:
+        # Inject context variables into the config prompt
+        prompt = config_prompt.replace("{company}", company)
+        prompt = prompt.replace("{industry}", industry)
+        prompt = prompt.replace("{stage}", stage)
+        prompt = prompt.replace("{interest}", str(interest))
+        prompt = prompt.replace("{needs}", needs_text)
+        prompt = prompt.replace("{objections}", obj_text)
+        prompt = prompt.replace("{strategy}", strategy)
+        prompt = prompt.replace("{history}", history_text)
+        return prompt
+
+    # Default prompt (fallback)
     return f"""<role>
 Ты — AI-ассистент компании Technomax. Ты общешься с клиентом в WhatsApp.
 Твоя задача — помочь клиенту, ответить на вопросы, и продвигать продажу решений Technomax.
@@ -206,20 +241,21 @@ def call_llm(system_prompt: str, user_message: str) -> str | None:
     Supports OpenRouter and Ollama.
     Returns raw LLM response text or None on failure.
     """
-    provider = os.environ.get("LLM_PROVIDER", "ollama").lower()
+    llm_cfg = _get_llm_config()
+    provider = llm_cfg["provider"].lower()
     
     if provider == "ollama":
-        return _call_ollama(system_prompt, user_message)
+        return _call_ollama(system_prompt, user_message, llm_cfg)
     else:
-        return _call_openrouter(system_prompt, user_message)
+        return _call_openrouter(system_prompt, user_message, llm_cfg)
 
 
-def _call_ollama(system_prompt: str, user_message: str) -> str | None:
+def _call_ollama(system_prompt: str, user_message: str, llm_cfg: dict) -> str | None:
     """Call Ollama API."""
-    ollama_url = os.environ.get("OLLAMA_URL", "http://ollama:11434")
-    model = os.environ.get("LLM_MODEL", "qwen2.5:1.5b")
+    base_url = llm_cfg["base_url"]
+    model = llm_cfg["model"]
     
-    url = f"{ollama_url}/api/chat"
+    url = f"{base_url}/api/chat"
     payload = {
         "model": model,
         "messages": [
@@ -228,8 +264,8 @@ def _call_ollama(system_prompt: str, user_message: str) -> str | None:
         ],
         "stream": False,
         "options": {
-            "temperature": 0.3,
-            "num_predict": 500,
+            "temperature": llm_cfg["temperature"],
+            "num_predict": llm_cfg["max_tokens"],
         },
     }
     
@@ -248,9 +284,9 @@ def _call_ollama(system_prompt: str, user_message: str) -> str | None:
         return None
 
 
-def _call_openrouter(system_prompt: str, user_message: str) -> str | None:
+def _call_openrouter(system_prompt: str, user_message: str, llm_cfg: dict) -> str | None:
     """Call OpenRouter API."""
-    api_key = _get_openrouter_key()
+    api_key = llm_cfg.get("api_key") or _get_openrouter_key()
     if not api_key:
         logger.error("No OpenRouter API key configured")
         return None
@@ -261,13 +297,13 @@ def _call_openrouter(system_prompt: str, user_message: str) -> str | None:
         "Content-Type": "application/json",
     }
     payload = {
-        "model": os.environ.get("LLM_MODEL", "xiaomi/mimo-v2.5-pro"),
+        "model": llm_cfg["model"],
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
         ],
-        "temperature": 0.3,
-        "max_tokens": 500,
+        "temperature": llm_cfg["temperature"],
+        "max_tokens": llm_cfg["max_tokens"],
     }
 
     try:

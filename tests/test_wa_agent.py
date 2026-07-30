@@ -160,7 +160,8 @@ class TestBuildPrompt:
         timeline = []
         context = {"stage": "new", "interest_level": 2, "needs": "[]", "objections": "[]"}
 
-        prompt = build_prompt(lead, timeline, context)
+        with patch("wa_agent_service._get_wa_agent_prompt", return_value=""):
+            prompt = build_prompt(lead, timeline, context)
 
         assert "<role>" in prompt
         assert "Technomax" in prompt
@@ -174,7 +175,8 @@ class TestBuildPrompt:
         from wa_agent_service import build_prompt
         lead = {"company_name": "TestCo", "industry": ""}
         context = {"stage": "interested", "interest_level": 8, "needs": "[]", "objections": "[]"}
-        prompt = build_prompt(lead, [], context)
+        with patch("wa_agent_service._get_wa_agent_prompt", return_value=""):
+            prompt = build_prompt(lead, [], context)
         assert "8/10" in prompt
 
     def test_prompt_contains_timeline(self):
@@ -185,7 +187,8 @@ class TestBuildPrompt:
             {"channel": "whatsapp", "direction": "outbound", "content": "Здравствуйте! Расскажу."},
         ]
         context = {"stage": "new", "interest_level": 0, "needs": "[]", "objections": "[]"}
-        prompt = build_prompt(lead, timeline, context)
+        with patch("wa_agent_service._get_wa_agent_prompt", return_value=""):
+            prompt = build_prompt(lead, timeline, context)
         assert "Привет, интересует AI" in prompt
         assert "Расскажу" in prompt
 
@@ -193,14 +196,16 @@ class TestBuildPrompt:
         from wa_agent_service import build_prompt
         lead = {"company_name": "TestCo", "industry": ""}
         context = {"stage": "new", "interest_level": 2, "needs": "[]", "objections": "[]"}
-        prompt = build_prompt(lead, [], context)
+        with patch("wa_agent_service._get_wa_agent_prompt", return_value=""):
+            prompt = build_prompt(lead, [], context)
         assert "Обучай" in prompt
 
     def test_prompt_high_interest_strategy(self):
         from wa_agent_service import build_prompt
         lead = {"company_name": "TestCo", "industry": ""}
         context = {"stage": "interested", "interest_level": 9, "needs": "[]", "objections": "[]"}
-        prompt = build_prompt(lead, [], context)
+        with patch("wa_agent_service._get_wa_agent_prompt", return_value=""):
+            prompt = build_prompt(lead, [], context)
         assert "Закрывай" in prompt
 
     def test_prompt_with_needs_and_objections(self):
@@ -212,7 +217,8 @@ class TestBuildPrompt:
             "needs": '["автоматизация", "AI оценка"]',
             "objections": '["дорого"]',
         }
-        prompt = build_prompt(lead, [], context)
+        with patch("wa_agent_service._get_wa_agent_prompt", return_value=""):
+            prompt = build_prompt(lead, [], context)
         assert "автоматизация" in prompt
         assert "дорого" in prompt
 
@@ -220,7 +226,8 @@ class TestBuildPrompt:
         from wa_agent_service import build_prompt
         lead = {"company_name": "TestCo", "industry": ""}
         context = {"stage": "new", "interest_level": 0, "needs": "[]", "objections": "[]"}
-        prompt = build_prompt(lead, [], context)
+        with patch("wa_agent_service._get_wa_agent_prompt", return_value=""):
+            prompt = build_prompt(lead, [], context)
         assert "update_status" in prompt
         assert "schedule_callback" in prompt
         assert "escalate" in prompt

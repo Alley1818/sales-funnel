@@ -318,6 +318,32 @@
                         </div>
                     </div>
                 </div>
+                <!-- LLM & Prompt Settings -->
+                <div class="grid gap-4 md:grid-cols-2 mt-4">
+                    <div class="rounded-lg border bg-card shadow-sm">
+                        <div class="p-4 border-b flex justify-between"><h3 class="text-sm font-medium">AI Модель (LLM)</h3><span id="llm-badge" class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-secondary text-secondary-foreground">--</span></div>
+                        <div class="p-4 space-y-2">
+                            <div><label class="text-xs font-medium text-muted-foreground">Провайдер</label><select id="llm-provider" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"><option value="ollama">Ollama</option><option value="openrouter">OpenRouter</option></select></div>
+                            <div><label class="text-xs font-medium text-muted-foreground">Модель</label><input id="llm-model" placeholder="qwen2.5:1.5b" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                            <div><label class="text-xs font-medium text-muted-foreground">Base URL</label><input id="llm-url" placeholder="http://ollama:11434" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                            <div><label class="text-xs font-medium text-muted-foreground">API Key (для OpenRouter)</label><input id="llm-key" type="password" placeholder="sk-..." class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><label class="text-xs font-medium text-muted-foreground">Temperature</label><input id="llm-temp" type="number" step="0.1" min="0" max="2" value="0.3" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                                <div><label class="text-xs font-medium text-muted-foreground">Max Tokens</label><input id="llm-tokens" type="number" value="500" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1"></div>
+                            </div>
+                            <div class="flex gap-2"><button onclick="saveLLM()" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Сохранить</button><button onclick="testLLM()" class="h-9 px-4 rounded-md border text-sm hover:bg-accent">Тест</button></div>
+                            <div id="llm-msg" class="text-xs"></div>
+                        </div>
+                    </div>
+                    <div class="rounded-lg border bg-card shadow-sm">
+                        <div class="p-4 border-b"><h3 class="text-sm font-medium">Промпт WhatsApp агента</h3></div>
+                        <div class="p-4 space-y-2">
+                            <p class="text-xs text-muted-foreground">Переменные: {company}, {industry}, {stage}, {interest}, {needs}, {objections}, {strategy}, {history}</p>
+                            <textarea id="wa-prompt" rows="12" class="flex w-full rounded-md border bg-background px-2 py-1 text-sm mt-1 font-mono text-xs" placeholder="Введите промпт..."></textarea>
+                            <div class="flex gap-2"><button onclick="saveWAPrompt()" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Сохранить</button></div>
+                        </div>
+                    </div>
+                </div>
                 <div class="mt-4 flex justify-end">
                     <button onclick="doLogout()" class="h-9 px-4 rounded-md border border-destructive text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground">Выйти из аккаунта</button>
                 </div>
@@ -409,7 +435,7 @@ function showPanel(n,el){
     if(n==='leads')loadLeads();
     if(n==='templates')loadTemplates();
     if(n==='newcampaign')loadCampaigns();
-    if(n==='settings'){loadSMTP();loadNotif();}
+    if(n==='settings'){loadSMTP();loadNotif();loadLLM();loadWAPrompt();}
     // Close mobile sidebar
     if(window.innerWidth<768){document.getElementById('sidebar').classList.add('hidden');document.getElementById('sidebar').classList.remove('flex');document.getElementById('sidebar-overlay').classList.remove('show')}
 }
@@ -616,6 +642,15 @@ async function testNotif(){try{const d=await(await fetch('/api/config/notificati
 // ---- BITRIX ----
 async function saveBitrix(){try{await fetch('/api/config/bitrix',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({portal:document.getElementById('bx-portal').value,webhook_token:document.getElementById('bx-token').value})});toast('Bitrix сохранён','success')}catch(e){toast('Ошибка','error')}}
 async function syncBitrix(){try{const d=await(await fetch('/api/bitrix/sync',{method:'POST'})).json();document.getElementById('bx-msg').innerHTML=d.ok?'<span class="text-green-600">Синхронизировано: '+d.synced+' контактов</span>':'<span class="text-red-600">'+(d.error||'Ошибка')+'</span>'}catch(e){toast('Ошибка','error')}}
+
+// ---- LLM Config ----
+async function loadLLM(){try{const d=await(await fetch('/api/config/llm')).json();document.getElementById('llm-provider').value=d.provider||'ollama';document.getElementById('llm-model').value=d.model||'';document.getElementById('llm-url').value=d.base_url||'';document.getElementById('llm-temp').value=d.temperature||0.3;document.getElementById('llm-tokens').value=d.max_tokens||500;const b=document.getElementById('llm-badge');b.textContent=d.provider||'ollama';b.className='inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-green-100 text-green-800'}catch(e){}}
+async function saveLLM(){try{await fetch('/api/config/llm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:document.getElementById('llm-provider').value,model:document.getElementById('llm-model').value,base_url:document.getElementById('llm-url').value,api_key:document.getElementById('llm-key').value,temperature:parseFloat(document.getElementById('llm-temp').value),max_tokens:parseInt(document.getElementById('llm-tokens').value)})});toast('LLM сохранён','success');loadLLM()}catch(e){toast('Ошибка','error')}}
+async function testLLM(){const msg=document.getElementById('llm-msg');msg.innerHTML='<span class="text-muted-foreground">Тестирую...</span>';try{const r=await fetch('/api/config/llm');const d=await r.json();msg.innerHTML='<span class="text-green-600">Модель: '+d.model+' | Провайдер: '+d.provider+'</span>'}catch(e){msg.innerHTML='<span class="text-red-600">Ошибка</span>'}}
+
+// ---- WA Agent Prompt ----
+async function loadWAPrompt(){try{const d=await(await fetch('/api/config/wa-prompt')).json();document.getElementById('wa-prompt').value=d.prompt||''}catch(e){}}
+async function saveWAPrompt(){try{await fetch('/api/config/wa-prompt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:document.getElementById('wa-prompt').value})});toast('Промпт сохранён','success')}catch(e){toast('Ошибка','error')}}
 
 // ---- AUTH ----
 const AUTH_TOKEN_KEY='sf_auth_token';
