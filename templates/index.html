@@ -34,6 +34,33 @@
 </head>
 <body class="min-h-screen">
 
+<!-- Login Overlay -->
+<div id="login-overlay" class="fixed inset-0 z-[100] flex items-center justify-center bg-background" style="display:none">
+  <div class="w-full max-w-sm mx-4">
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary mb-4">
+        <svg class="h-6 w-6 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      </div>
+      <h1 class="text-xl font-semibold">Sales Funnel</h1>
+      <p class="text-sm text-muted-foreground mt-1">Введите пароль для входа</p>
+    </div>
+    <form id="login-form" onsubmit="return doLogin(event)">
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs font-medium text-muted-foreground">Логин</label>
+          <input id="login-user" type="text" value="admin" class="flex h-9 w-full rounded-md border bg-background px-3 text-sm mt-1" autocomplete="username">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-muted-foreground">Пароль</label>
+          <input id="login-pass" type="password" placeholder="Введите пароль" class="flex h-9 w-full rounded-md border bg-background px-3 text-sm mt-1" autocomplete="current-password" autofocus>
+        </div>
+        <button type="submit" class="w-full h-9 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90">Войти</button>
+        <p id="login-error" class="text-xs text-destructive text-center hidden"></p>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Mobile hamburger -->
 <button id="hamburger" onclick="toggleSidebar()" class="fixed top-3 left-3 z-50 md:hidden inline-flex items-center justify-center rounded-md h-9 w-9 border bg-background hover:bg-accent">
     <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
@@ -290,6 +317,9 @@
                             </div>
                         </div>
                     </div>
+                </div>
+                <div class="mt-4 flex justify-end">
+                    <button onclick="doLogout()" class="h-9 px-4 rounded-md border border-destructive text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground">Выйти из аккаунта</button>
                 </div>
             </div>
 
@@ -587,9 +617,88 @@ async function testNotif(){try{const d=await(await fetch('/api/config/notificati
 async function saveBitrix(){try{await fetch('/api/config/bitrix',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({portal:document.getElementById('bx-portal').value,webhook_token:document.getElementById('bx-token').value})});toast('Bitrix сохранён','success')}catch(e){toast('Ошибка','error')}}
 async function syncBitrix(){try{const d=await(await fetch('/api/bitrix/sync',{method:'POST'})).json();document.getElementById('bx-msg').innerHTML=d.ok?'<span class="text-green-600">Синхронизировано: '+d.synced+' контактов</span>':'<span class="text-red-600">'+(d.error||'Ошибка')+'</span>'}catch(e){toast('Ошибка','error')}}
 
+// ---- AUTH ----
+const AUTH_TOKEN_KEY='sf_auth_token';
+function getToken(){return localStorage.getItem(AUTH_TOKEN_KEY)}
+function setToken(t){localStorage.setItem(AUTH_TOKEN_KEY,t)}
+function clearToken(){localStorage.removeItem(AUTH_TOKEN_KEY)}
+
+// Override fetch to auto-inject auth token
+const _originalFetch=window.fetch;
+window.fetch=function(url,opts={}){
+    const token=getToken();
+    if(token){
+        if(!opts.headers)opts.headers={};
+        if(!(opts.headers instanceof Headers))opts.headers['Authorization']='Bearer '+token;
+    }
+    return _originalFetch(url,opts).then(r=>{
+        if(r.status===401&&!url.includes('/api/auth/login')){
+            clearToken();
+            showLogin();
+        }
+        return r;
+    });
+};
+
+function showLogin(){
+    document.getElementById('login-overlay').style.display='flex';
+    setTimeout(()=>document.getElementById('login-pass').focus(),100);
+}
+function hideLogin(){
+    document.getElementById('login-overlay').style.display='none';
+}
+
+function doLogout(){
+    clearToken();
+    showLogin();
+    toast('Вы вышли из аккаунта');
+}
+
+async function doLogin(e){
+    e.preventDefault();
+    const user=document.getElementById('login-user').value;
+    const pass=document.getElementById('login-pass').value;
+    const errEl=document.getElementById('login-error');
+    errEl.classList.add('hidden');
+    try{
+        const r=await _originalFetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:user,password:pass})});
+        const d=await r.json();
+        if(r.ok&&d.token){
+            setToken(d.token);
+            hideLogin();
+            toast('Добро пожаловать!','success');
+            initApp();
+        }else{
+            errEl.textContent=d.error||'Неверный пароль';
+            errEl.classList.remove('hidden');
+        }
+    }catch(err){
+        errEl.textContent='Ошибка подключения';
+        errEl.classList.remove('hidden');
+    }
+    return false;
+}
+
+async function checkAuth(){
+    const token=getToken();
+    if(!token){showLogin();return false}
+    try{
+        const r=await _originalFetch('/api/stats',{headers:{'Authorization':'Bearer '+token}});
+        if(r.ok)return true;
+    }catch(e){}
+    clearToken();
+    showLogin();
+    return false;
+}
+
 // ---- INIT ----
-showPanel('dashboard',document.querySelector('.nav-btn.active'));
-setInterval(()=>{if(!document.getElementById('panel-agents').classList.contains('hidden'))loadStatus()},15000);
+async function initApp(){
+    const ok=await checkAuth();
+    if(!ok)return;
+    showPanel('dashboard',document.querySelector('.nav-btn.active'));
+    setInterval(()=>{if(!document.getElementById('panel-agents').classList.contains('hidden'))loadStatus()},15000);
+}
+initApp();
 </script>
 </body>
 </html>
