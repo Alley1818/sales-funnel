@@ -44,10 +44,13 @@ class TestSendWhatsApp:
         assert r.status_code == 400
         assert "phone" in r.json["error"]
 
-    def test_lead_not_found(self, client):
+    @patch("whatsapp_client.WhatsAppClient.send_text")
+    def test_lead_not_found_auto_creates(self, mock_send, client):
+        mock_send.return_value = MagicMock(success=True, message_id="msg_new")
         r = client.post("/api/agent/send-whatsapp", json={"phone": "79999999999"})
-        assert r.status_code == 404
-        assert "not found" in r.json["error"].lower()
+        assert r.status_code == 200
+        assert r.json["ok"] is True
+        assert "lead_id" in r.json
 
     @patch("whatsapp_client.WhatsAppClient.send_text")
     def test_success(self, mock_send, client, seed_lead):

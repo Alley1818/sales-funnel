@@ -33,10 +33,19 @@ def send_whatsapp():
     ).fetchone()
 
     if not lead:
-        return jsonify({"error": "Lead not found for this phone"}), 404
-
-    lead = dict(lead)
-    lead_id = lead["id"]
+        # Auto-create lead if not found
+        contact_name = data.get("contact_name", "").strip() or f"Клиент {phone[-4:]}"
+        cur = conn.execute(
+            "INSERT INTO leads (company_name, mobile, phone, status) VALUES (?, ?, ?, 'new')",
+            (contact_name, phone, phone),
+        )
+        conn.commit()
+        lead_id = cur.lastrowid
+        lead = {"id": lead_id, "company_name": contact_name, "mobile": phone}
+        log_event(lead_id, "auto_created", "Лид автоматически создан при отправке WhatsApp", channel="system")
+    else:
+        lead = dict(lead)
+        lead_id = lead["id"]
 
     # Build the message
     company = lead.get("company_name", "ваша компания")
