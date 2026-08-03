@@ -218,9 +218,10 @@ class AIBrain:
         }
 
         try:
+            base_url = llm_config.get("base_url", "https://openrouter.ai/api/v1").rstrip("/")
             resp = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                f"{base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json; charset=utf-8"},
                 json=payload,
                 timeout=30,
             )
