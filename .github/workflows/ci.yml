@@ -242,6 +242,8 @@ jobs:
           command_timeout: 10m
           script: |
             cd "$HOME/sales-funnel"
+            # Clean up stale sales_funnel.log directory from old deploys
+            rm -rf sales_funnel.log
             docker compose down --remove-orphans 2>/dev/null || true
             for p in 8080 8082 5050; do
               docker ps -q --filter "publish=$p" | xargs -r docker stop 2>/dev/null || true
