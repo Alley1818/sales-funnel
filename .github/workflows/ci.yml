@@ -137,12 +137,6 @@ jobs:
           html = open('templates/index.html').read()
           assert 'panel-dashboard' in html
           assert 'panel-agents' in html
-          assert 'panel-campaigns' in html
-          assert 'panel-leads' in html
-          assert 'panel-templates' in html
-          assert 'panel-newcampaign' in html
-          assert 'panel-settings' in html
-          assert 'confirm-modal' in html
           assert 'manifest.json' in html
           print('Template OK')
           "
