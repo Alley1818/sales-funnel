@@ -269,7 +269,7 @@ jobs:
               lsof -iTCP:5050 -sTCP:LISTEN -t | xargs -r kill -9 2>/dev/null || true
             fi
             sleep 3
-            docker compose build --no-cache > /tmp/sf-build.log 2>&1 || { cat /tmp/sf-build.log; exit 1; }
+            docker compose build > /tmp/sf-build.log 2>&1 || { cat /tmp/sf-build.log; exit 1; }
             docker compose up -d || { echo "docker compose up failed"; docker compose ps; exit 1; }
             echo "Docker deploy OK"
             # Wait for Ollama to start and pull model
