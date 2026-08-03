@@ -11,6 +11,33 @@ logger = logging.getLogger("agent_tools")
 agent_tools_bp = Blueprint("agent_tools", __name__)
 
 
+@agent_tools_bp.route("/test-whatsapp", methods=["POST"])
+def test_whatsapp():
+    """Test endpoint: send WhatsApp message to any number with custom text.
+    
+    POST /api/agent/test-whatsapp
+    {"phone": "77071234567", "message": "Привет, это тест"}
+    """
+    from whatsapp_client import WhatsAppClient
+
+    data = request.get_json() or {}
+    phone = data.get("phone", "").strip()
+    message = data.get("message", "").strip()
+
+    if not phone:
+        return jsonify({"error": "phone required"}), 400
+    if not message:
+        return jsonify({"error": "message required"}), 400
+
+    wa = WhatsAppClient()
+    result = wa.send_text(phone, message)
+
+    if result.success:
+        return jsonify({"ok": True, "message_id": result.message_id, "phone": phone})
+    else:
+        return jsonify({"ok": False, "error": result.error, "phone": phone}), 502
+
+
 @agent_tools_bp.route("/send-whatsapp", methods=["POST"])
 def send_whatsapp():
     """Send WhatsApp message to a lead found by phone number."""
@@ -259,4 +286,155 @@ def schedule_callback_route():
         metadata={"callback_datetime": callback_datetime, "contact_name": contact_name},
     )
 
-    return jsonify({"ok": True, "lead_id": lead_id})
+    return jsonify({"ok": True, "lead_id": lead_id, "callback_datetime": callback_datetime})
+
+
+# ======================================================================
+# /call-complete — unified endpoint for Technomax after call ends
+# ======================================================================
+
+@agent_tools_bp.route("/call-complete", methods=["POST"])
+def call_complete():
+    """
+    Unified endpoint: Technomax calls this after a voice call ends.
+    One request: logs result, creates/updates lead, optionally sends WhatsApp.
+
+    JSON body:
+        phone          (required) — client phone number
+        contact_name   — client name
+        company_name   — company name
+        industry       — industry
+        result         — call result: interested|callback|refused|no_answer|wrong_number
+        notes          — call transcript or notes
+        send_kp        — bool, send commercial proposal via WhatsApp
+        send_whatsapp  — bool, send follow-up WhatsApp message
+        message        — custom WhatsApp message (overrides default)
+    """
+    from db_conn import get_conn
+    from whatsapp_client import WhatsAppClient
+    from agent_sync import log_event, log_message, log_status_change, update_lead_context
+
+    data = request.get_json() or {}
+    phone = data.get("phone", "").strip()
+    if not phone:
+        return jsonify({"error": "phone required"}), 400
+
+    contact_name = data.get("contact_name", "").strip()
+    company_name = data.get("company_name", "").strip() or "Unknown"
+    industry = data.get("industry", "").strip()
+    result = data.get("result", "unknown").strip()
+    notes = data.get("notes", "").strip()
+    send_kp = data.get("send_kp", False)
+    send_wa = data.get("send_whatsapp", False) or send_kp
+    custom_message = data.get("message", "").strip()
+
+    # Normalize phone
+    digits = "".join(c for c in phone if c.isdigit())
+    if len(digits) == 10:
+        digits = "7" + digits
+    elif len(digits) == 11 and digits.startswith("8"):
+        digits = "7" + digits[1:]
+
+    # Find or create lead
+    conn = get_conn()
+    lead = conn.execute(
+        "SELECT * FROM leads WHERE mobile = ? OR whatsapp = ? OR phone = ?",
+        (digits, digits, digits),
+    ).fetchone()
+
+    if lead:
+        lead = dict(lead)
+        lead_id = lead["id"]
+        old_status = lead.get("status", "new")
+        # Update company/industry if provided and missing
+        if company_name and company_name != "Unknown":
+            conn.execute("UPDATE leads SET company_name = ? WHERE id = ? AND (company_name = '' OR company_name LIKE 'Клиент%')",
+                         (company_name, lead_id))
+        if industry:
+            conn.execute("UPDATE leads SET industry = ? WHERE id = ? AND industry = ''",
+                         (industry, lead_id))
+        conn.commit()
+    else:
+        cur = conn.execute(
+            "INSERT INTO leads (company_name, mobile, phone, industry, status) VALUES (?, ?, ?, ?, 'new')",
+            (company_name if company_name != "Unknown" else f"Клиент {digits[-4:]}", digits, digits, industry),
+        )
+        conn.commit()
+        lead_id = cur.lastrowid
+        assert lead_id is not None
+        old_status = "new"
+        log_event(lead_id, "auto_created", "Лид создан по результату звонка Лидгена", channel="voice")
+
+    # Update status based on call result
+    status_map = {
+        "interested": "interested",
+        "callback": "callback",
+        "refused": "refused",
+        "no_answer": "no_answer",
+        "wrong_number": "wrong_number",
+    }
+    new_status = status_map.get(result, "called")
+    conn.execute(
+        "UPDATE leads SET status = ?, call_result = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (new_status, result, lead_id),
+    )
+    conn.commit()
+
+    # Log call result
+    if notes:
+        log_message(lead_id, "voice", "inbound", notes[:500], {"result": result})
+    log_status_change(lead_id, old_status, new_status, f"[voice] {notes[:100]}")
+    log_event(lead_id, "call_result", f"Звонок: {result}. {notes[:200]}", channel="voice",
+              metadata={"result": result, "phone": digits})
+
+    # Update context
+    if result == "interested":
+        update_lead_context(lead_id, stage="interested", interest_level=8)
+    elif result == "refused":
+        update_lead_context(lead_id, stage="lost", interest_level=0)
+    elif result == "callback":
+        update_lead_context(lead_id, stage="negotiating", interest_level=5)
+
+    # Send WhatsApp if requested
+    wa_sent = False
+    wa_error = None
+    if send_wa:
+        if send_kp:
+            # Send commercial proposal
+            try:
+                from app.services.kp_service import send_kp
+                kp_result = send_kp(lead_id, company_name, industry)
+                wa_sent = "error" not in kp_result
+                if not wa_sent:
+                    wa_error = kp_result.get("error", "kp_failed")
+            except Exception as e:
+                wa_error = str(e)
+                logger.error("KP send failed: %s", e)
+        else:
+            # Send regular follow-up message
+            wa = WhatsAppClient()
+            if not custom_message:
+                custom_message = (
+                    f"Здравствуйте! Спасибо за разговор. "
+                    f"Если возникнут вопросы — пишите сюда, мы на связи!"
+                )
+            wa_result = wa.send_text(digits, custom_message)
+            wa_sent = wa_result.success
+            if not wa_result.success:
+                wa_error = wa_result.error
+
+        if wa_sent:
+            log_event(lead_id, "whatsapp_sent", "WhatsApp отправлен после звонка",
+                      channel="whatsapp", metadata={"phone": digits})
+        else:
+            log_event(lead_id, "whatsapp_failed", f"WhatsApp не отправлен: {wa_error}",
+                      channel="whatsapp", metadata={"error": wa_error})
+
+    return jsonify({
+        "ok": True,
+        "lead_id": lead_id,
+        "status": new_status,
+        "whatsapp_sent": wa_sent,
+        "whatsapp_error": wa_error,
+    })
+

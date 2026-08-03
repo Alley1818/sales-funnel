@@ -206,3 +206,115 @@ class TestBlueprintRegistered:
         assert "/api/agent/send-email" in rules
         assert "/api/agent/create-deal" in rules
         assert "/api/agent/schedule-callback" in rules
+        assert "/api/agent/call-complete" in rules
+        assert "/api/agent/test-whatsapp" in rules
+
+
+# ─── /test-whatsapp ────────────────────────────────────────────────
+
+class TestTestWhatsApp:
+    """Tests for the test-whatsapp endpoint."""
+
+    def test_missing_phone(self, client):
+        r = client.post("/api/agent/test-whatsapp", json={"message": "test"})
+        assert r.status_code == 400
+        assert "phone" in r.json["error"]
+
+    def test_missing_message(self, client):
+        r = client.post("/api/agent/test-whatsapp", json={"phone": "77071234567"})
+        assert r.status_code == 400
+        assert "message" in r.json["error"]
+
+    def test_send_fails_without_evo(self, client):
+        """Without Evolution API running, returns 502."""
+        r = client.post("/api/agent/test-whatsapp", json={
+            "phone": "77071234567",
+            "message": "Тестовое сообщение",
+        })
+        # Should return 502 (EVO not running locally) or 200 if mocked
+        assert r.status_code in (200, 502)
+        assert "phone" in r.json
+
+
+# ─── /call-complete ────────────────────────────────────────────────
+
+class TestCallComplete:
+    """Tests for the unified call-complete endpoint."""
+
+    def test_call_complete_new_lead(self, client):
+        """Creates lead + logs result when phone not in DB."""
+        r = client.post("/api/agent/call-complete", json={
+            "phone": "7700CALL001",
+            "company_name": "TestCallCo",
+            "result": "interested",
+            "notes": "Клиент заинтересован в AI",
+            "send_whatsapp": False,
+        })
+        assert r.status_code == 200
+        data = r.json
+        assert data["ok"] is True
+        assert data["lead_id"] > 0
+        assert data["status"] == "interested"
+        assert data["whatsapp_sent"] is False
+
+        # Cleanup
+        from db_conn import get_conn
+        get_conn().execute("DELETE FROM conversations WHERE lead_id = ?", (data["lead_id"],))
+        get_conn().execute("DELETE FROM lead_context WHERE lead_id = ?", (data["lead_id"],))
+        get_conn().execute("DELETE FROM leads WHERE id = ?", (data["lead_id"],))
+        get_conn().commit()
+
+    def test_call_complete_existing_lead(self, client, seed_lead):
+        """Updates existing lead status."""
+        r = client.post("/api/agent/call-complete", json={
+            "phone": "77001234567",
+            "result": "callback",
+            "notes": "Перезвонить через неделю",
+        })
+        assert r.status_code == 200
+        assert r.json["status"] == "callback"
+
+    def test_call_complete_no_phone(self, client):
+        """Returns 400 when phone missing."""
+        r = client.post("/api/agent/call-complete", json={
+            "result": "interested",
+        })
+        assert r.status_code == 400
+        assert "phone" in r.json["error"]
+
+    def test_call_complete_with_send_kp(self, client):
+        """send_kp=True triggers WhatsApp KP send (will fail without evo, but no crash)."""
+        r = client.post("/api/agent/call-complete", json={
+            "phone": "7700CALL002",
+            "result": "interested",
+            "send_kp": True,
+        })
+        assert r.status_code == 200
+        assert r.json["ok"] is True
+        # WhatsApp may fail (no evo connection), but endpoint should not crash
+        assert "whatsapp_sent" in r.json
+
+        # Cleanup
+        from db_conn import get_conn
+        lid = r.json["lead_id"]
+        get_conn().execute("DELETE FROM conversations WHERE lead_id = ?", (lid,))
+        get_conn().execute("DELETE FROM lead_context WHERE lead_id = ?", (lid,))
+        get_conn().execute("DELETE FROM leads WHERE id = ?", (lid,))
+        get_conn().commit()
+
+    def test_call_complete_refused(self, client):
+        """Refused result sets status to refused."""
+        r = client.post("/api/agent/call-complete", json={
+            "phone": "7700CALL003",
+            "result": "refused",
+        })
+        assert r.status_code == 200
+        assert r.json["status"] == "refused"
+
+        # Cleanup
+        from db_conn import get_conn
+        lid = r.json["lead_id"]
+        get_conn().execute("DELETE FROM conversations WHERE lead_id = ?", (lid,))
+        get_conn().execute("DELETE FROM lead_context WHERE lead_id = ?", (lid,))
+        get_conn().execute("DELETE FROM leads WHERE id = ?", (lid,))
+        get_conn().commit()

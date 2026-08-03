@@ -384,6 +384,20 @@
                             <div class="flex gap-2"><button onclick="saveWAPrompt()" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Сохранить</button></div>
                         </div>
                     </div>
+                    <!-- Test WhatsApp -->
+                    <div class="rounded-lg border bg-card shadow-sm">
+                        <div class="p-4 border-b"><h3 class="text-sm font-medium">🧪 Тест WhatsApp</h3></div>
+                        <div class="p-4 space-y-3">
+                            <div><label class="text-xs font-medium text-muted-foreground">Номер телефона</label>
+                            <input id="test-wa-phone" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1" placeholder="77071234567"></div>
+                            <div><label class="text-xs font-medium text-muted-foreground">Текст сообщения</label>
+                            <textarea id="test-wa-msg" rows="3" class="flex w-full rounded-md border bg-background px-2 py-1 text-sm mt-1" placeholder="Привет! Это тестовое сообщение"></textarea></div>
+                            <div class="flex gap-2 items-center">
+                                <button onclick="sendTestWA()" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Отправить</button>
+                                <span id="test-wa-result" class="text-xs"></span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <!-- KP & Follow-up Settings -->
                 <div class="grid gap-4 md:grid-cols-2 mt-4">
@@ -737,6 +751,19 @@ async function testFB(){const msg=document.getElementById('fb-msg');msg.innerHTM
 // ---- WA Agent Prompt ----
 async function loadWAPrompt(){try{const d=await(await fetch('/api/config/wa-prompt')).json();document.getElementById('wa-prompt').value=d.prompt||''}catch(e){}}
 async function saveWAPrompt(){try{await fetch('/api/config/wa-prompt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:document.getElementById('wa-prompt').value})});toast('Промпт сохранён','success')}catch(e){toast('Ошибка','error')}}
+async function sendTestWA(){
+    const phone=document.getElementById('test-wa-phone').value.trim();
+    const message=document.getElementById('test-wa-msg').value.trim();
+    const res=document.getElementById('test-wa-result');
+    if(!phone||!message){res.textContent='Заполните номер и текст';res.style.color='red';return;}
+    res.textContent='Отправка...';res.style.color='';
+    try{
+        const r=await fetch('/api/agent/test-whatsapp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,message})});
+        const d=await r.json();
+        if(d.ok){res.textContent='✓ Отправлено! ID: '+d.message_id;res.style.color='green';}
+        else{res.textContent='✗ '+d.error;res.style.color='red';}
+    }catch(e){res.textContent='✗ Ошибка: '+e;res.style.color='red';}
+}
 
 // ---- KP Upload ----
 async function uploadKP(){

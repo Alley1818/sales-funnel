@@ -553,10 +553,10 @@ def _find_lead_by_phone(phone: str) -> dict | None:
     elif len(digits) == 11 and digits.startswith("8"):
         digits = "7" + digits[1:]
 
-    # Try exact match on mobile first, then whatsapp
+    # Try exact match on mobile, whatsapp, or phone
     row = conn.execute(
-        "SELECT * FROM leads WHERE mobile = ? OR whatsapp = ? LIMIT 1",
-        (digits, digits),
+        "SELECT * FROM leads WHERE mobile = ? OR whatsapp = ? OR phone = ? LIMIT 1",
+        (digits, digits, digits),
     ).fetchone()
     if row:
         return dict(row)
@@ -565,8 +565,8 @@ def _find_lead_by_phone(phone: str) -> dict | None:
     if len(digits) >= 7:
         suffix = digits[-7:]
         row = conn.execute(
-            "SELECT * FROM leads WHERE mobile LIKE ? OR whatsapp LIKE ? LIMIT 1",
-            (f"%{suffix}", f"%{suffix}"),
+            "SELECT * FROM leads WHERE mobile LIKE ? OR whatsapp LIKE ? OR phone LIKE ? LIMIT 1",
+            (f"%{suffix}", f"%{suffix}", f"%{suffix}"),
         ).fetchone()
         if row:
             return dict(row)

@@ -309,11 +309,14 @@ def wa_webhook():
         try:
             from wa_agent_service import process_incoming_message
             import threading
-            threading.Thread(
-                target=process_incoming_message,
-                args=(phone, message),
-                daemon=True,
-            ).start()
+
+            def _process_safe():
+                try:
+                    process_incoming_message(phone, message)
+                except Exception as e:
+                    logger.error("WA agent error for %s: %s", phone, e, exc_info=True)
+
+            threading.Thread(target=_process_safe, daemon=True).start()
         except Exception as e:
             logger.error("WA agent processing failed: %s", e)
 

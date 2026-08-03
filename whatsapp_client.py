@@ -21,7 +21,7 @@ class WhatsAppConfig:
     def from_env(cls) -> "WhatsAppConfig":
         return cls(
             base_url=os.environ.get("EVO_API_URL", "http://localhost:8080").rstrip("/"),
-            api_key=os.environ.get("EVO_API_KEY", "your_api_key_here"),
+            api_key=os.environ.get("EVO_API_KEY", ""),
             instance_name=os.environ.get("EVO_INSTANCE", "sales_funnel"),
         )
 

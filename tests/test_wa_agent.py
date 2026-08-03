@@ -126,6 +126,16 @@ class TestFindLeadByPhone:
         assert lead is not None
         assert lead["company_name"] == "TestCo"
 
+    def test_find_by_phone_field(self, patched_all, db_conn):
+        from wa_agent_service import _find_lead_by_phone
+        db_conn.execute(
+            "INSERT INTO leads (company_name, phone) VALUES ('TestCo', '77075554433')"
+        )
+        db_conn.commit()
+        lead = _find_lead_by_phone("77075554433")
+        assert lead is not None
+        assert lead["company_name"] == "TestCo"
+
     def test_find_with_plus_prefix(self, patched_all, db_conn):
         from wa_agent_service import _find_lead_by_phone
         db_conn.execute(
