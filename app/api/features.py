@@ -307,7 +307,7 @@ def wa_webhook():
 
         # Process with AI agent (non-blocking)
         try:
-            from wa_agent_service import process_incoming_message
+            from app.services.wa_agent_service import process_incoming_message
             import threading
 
             def _process_safe():
