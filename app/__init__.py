@@ -10,7 +10,7 @@ from flask import Flask
 
 
 LOG_FILE = Path(__file__).parent.parent / "sales_funnel.log"
-CONFIG_FILE = Path(__file__).parent.parent / "config.json"
+CONFIG_FILE = Path(os.environ.get("CONFIG_PATH", str(Path(__file__).parent.parent / "config.json")))
 
 
 def load_config() -> dict:

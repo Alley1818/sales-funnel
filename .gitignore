@@ -17,3 +17,4 @@ qr.html
 config.json
 *.log
 sales_funnel.log
+config_data/config.json

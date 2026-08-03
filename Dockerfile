@@ -17,8 +17,8 @@ RUN pip install --no-cache-dir pymupdf python-docx
 # Copy application
 COPY . .
 
-# Create directories for uploads and data
-RUN mkdir -p /app/uploads/kp /app/data/chromadb
+# Create directories for uploads, data, and config
+RUN mkdir -p /app/uploads/kp /app/data/chromadb /app/config_data
 
 # Default port
 ENV PORT=5050
