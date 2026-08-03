@@ -52,7 +52,12 @@ jobs:
           python -m py_compile app/api/technomax.py
           python -m py_compile app/api/features.py
           python -m py_compile app/api/advanced.py
+          python -m py_compile app/api/call_routes.py
           python -m py_compile app/services/kp_service.py
+          python -m py_compile call_orchestrator.py
+          python -m py_compile call_queue.py
+          python -m py_compile retry_manager.py
+          python -m py_compile business_hours.py
           echo "All modules compile OK"
 
       - name: Test DB initialization
@@ -189,6 +194,46 @@ jobs:
             fi
             [ ! -f .env ] && cp .env.example .env
             [ ! -f .env.pipecat ] && cp .env.pipecat.example .env.pipecat
+            # Sync .env.example defaults into .env (only for placeholder / missing keys)
+            python3 -c "
+            import os
+            def parse_env(path):
+                d = {}
+                with open(path) as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#') and '=' in line:
+                            k, v = line.split('=', 1)
+                            d[k.strip()] = v.strip()
+                return d
+            example = parse_env('.env.example')
+            current = parse_env('.env')
+            PLACEHOLDERS = {'your_api_key_here', 'your_openrouter_key_here', 'change_me_to_strong_password'}
+            updated = []
+            for k, v in example.items():
+                if k not in current or current[k] in PLACEHOLDERS:
+                    current[k] = v
+                    updated.append(k)
+            if updated:
+                # Rebuild .env preserving comments/order from example
+                lines = []
+                with open('.env') as f:
+                    existing = f.read()
+                with open('.env.example') as f:
+                    for line in f:
+                        l = line.strip()
+                        if l and not l.startswith('#') and '=' in l:
+                            k = l.split('=', 1)[0].strip()
+                            if k in current:
+                                lines.append(f'{k}={current[k]}')
+                                continue
+                        lines.append(line.rstrip())
+                with open('.env', 'w') as f:
+                    f.write('\n'.join(lines) + '\n')
+                print(f'Synced {len(updated)} keys: {updated}')
+            else:
+                print('.env is up to date')
+            "
             python3 -m venv venv 2>/dev/null || true
             source venv/bin/activate
             pip install -q -r requirements.txt

@@ -102,6 +102,7 @@ def create_app(config_override: dict | None = None) -> Flask:
     from app.api.advanced import advanced_bp
     from app.api.agent_tools import agent_tools_bp
     from app.api.kp import kp_bp
+    from app.api.call_routes import call_bp
 
     app.register_blueprint(core_bp)
     app.register_blueprint(leads_bp)
@@ -113,12 +114,13 @@ def create_app(config_override: dict | None = None) -> Flask:
     app.register_blueprint(advanced_bp)
     app.register_blueprint(agent_tools_bp, url_prefix="/api/agent")
     app.register_blueprint(kp_bp)
+    app.register_blueprint(call_bp)
 
     # Exempt all API blueprints from CSRF (JSON API with Bearer auth)
     csrf = app.extensions.get("csrf_protect")
     if csrf:
         for bp in [core_bp, leads_bp, whatsapp_bp, agent_bp, agent_tools_bp,
-                    config_bp, technomax_bp, features_bp, advanced_bp]:
+                    config_bp, technomax_bp, features_bp, advanced_bp, call_bp]:
             csrf.exempt(bp)
 
     # Auto-configure Evolution API webhook on startup
