@@ -1,6 +1,7 @@
 """
 Agent callback endpoints: send-kp, log-call, start calls, call status.
 """
+import os
 import threading
 import logging
 from flask import Blueprint, request, jsonify
@@ -189,10 +190,20 @@ def start_ai_calls():
 @agent_bp.route("/api/calls/status")
 @require_auth
 def pipecat_status():
-    """Check Pipecat agent status."""
+    """Check Pipecat agent status and Asterisk connection."""
     from pipecat_client import PipecatClient
     client = PipecatClient()
-    return jsonify({
-        "available": client.health(),
-        "results": client.get_results() if client.health() else {},
-    })
+    healthy = client.health()
+    result = {"available": healthy}
+    if healthy:
+        try:
+            import requests as req
+            pipecat_url = os.environ.get("PIPECAT_URL", "http://pipecat-agent:8082")
+            r = req.get(f"{pipecat_url}/health", timeout=5)
+            data = r.json()
+            result["agent"] = data.get("agent", "")
+            result["asterisk"] = data.get("asterisk", "")
+            result["sip_trunk"] = data.get("sip_trunk", "")
+        except Exception:
+            pass
+    return jsonify(result)
