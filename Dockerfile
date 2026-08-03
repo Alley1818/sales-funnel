@@ -28,5 +28,6 @@ EXPOSE 5050
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD curl -f http://localhost:5050/health || exit 1
 
-# Run with gunicorn
-CMD ["python", "main.py", "serve"]
+# Pre-start: clean up sales_funnel.log if it's a directory (Docker artifact)
+# Then run the app
+CMD ["sh", "-c", "if [ -d /app/sales_funnel.log ]; then rm -rf /app/sales_funnel.log; fi && python main.py serve"]
