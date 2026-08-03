@@ -401,7 +401,6 @@ def _call_groq(system_prompt: str, user_message: str, llm_cfg: dict) -> str | No
     url = f"{base_url.rstrip('/')}/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
     }
     payload = {
         "model": llm_cfg["model"],
@@ -439,7 +438,6 @@ def _call_openai_compatible(system_prompt: str, user_message: str, llm_cfg: dict
     url = f"{base_url.rstrip('/')}/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
     }
     payload = {
         "model": llm_cfg["model"],
