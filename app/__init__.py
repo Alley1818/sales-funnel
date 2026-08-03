@@ -27,7 +27,10 @@ def save_config(cfg: dict):
 
 def create_app(config_override: dict | None = None) -> Flask:
     """Create and configure the Flask application."""
-    # Logging
+    # Logging — handle sales_funnel.log being a directory (Docker volume artifact)
+    if LOG_FILE.exists() and LOG_FILE.is_dir():
+        import shutil
+        shutil.rmtree(LOG_FILE)
     file_handler = RotatingFileHandler(
         str(LOG_FILE), maxBytes=10 * 1024 * 1024, backupCount=5
     )
