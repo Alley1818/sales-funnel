@@ -90,13 +90,15 @@ class AIBrain:
         if not base_prompt:
             base_prompt = self._default_prompt()
 
-        # Inject context variables
-        prompt = base_prompt.replace("{company}", ctx.get("company", "клиент"))
-        prompt = prompt.replace("{industry}", ctx.get("industry", ""))
-        prompt = prompt.replace("{stage}", ctx.get("stage", "new"))
-        prompt = prompt.replace("{interest}", str(ctx.get("interest_level", 0)))
-        prompt = prompt.replace("{needs}", ", ".join(ctx.get("needs", [])) or "не выявлены")
-        prompt = prompt.replace("{objections}", ", ".join(ctx.get("objections", [])) or "нет")
+        # Inject context variables (handle None values)
+        prompt = base_prompt.replace("{company}", str(ctx.get("company") or "клиент"))
+        prompt = prompt.replace("{industry}", str(ctx.get("industry") or ""))
+        prompt = prompt.replace("{stage}", str(ctx.get("stage") or "new"))
+        prompt = prompt.replace("{interest}", str(ctx.get("interest_level") or 0))
+        needs = ctx.get("needs") or []
+        prompt = prompt.replace("{needs}", ", ".join(needs) if isinstance(needs, list) else str(needs) or "не выявлены")
+        objections = ctx.get("objections") or []
+        prompt = prompt.replace("{objections}", ", ".join(objections) if isinstance(objections, list) else str(objections) or "нет")
 
         # Add available tools description
         tools_desc = self._describe_tools()
