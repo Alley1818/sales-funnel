@@ -22,7 +22,6 @@ services:
       - ./leads.db:/app/leads.db
       - ./config.json:/app/config.json
       - ./.auth.json:/app/.auth.json
-      - ./sales_funnel.log:/app/sales_funnel.log
       - ./uploads:/app/uploads
       - ./data:/app/data
     depends_on:

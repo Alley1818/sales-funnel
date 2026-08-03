@@ -28,20 +28,25 @@ def save_config(cfg: dict):
 def create_app(config_override: dict | None = None) -> Flask:
     """Create and configure the Flask application."""
     # Logging — handle sales_funnel.log being a directory (Docker volume artifact)
-    if LOG_FILE.exists() and LOG_FILE.is_dir():
-        import shutil
-        shutil.rmtree(LOG_FILE)
-    file_handler = RotatingFileHandler(
-        str(LOG_FILE), maxBytes=10 * 1024 * 1024, backupCount=5
-    )
-    file_handler.setLevel(logging.INFO)
-    file_handler.setFormatter(logging.Formatter(
-        "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
-    ))
+    handlers = [logging.StreamHandler()]
+    try:
+        if LOG_FILE.exists() and LOG_FILE.is_dir():
+            import shutil
+            shutil.rmtree(LOG_FILE)
+        file_handler = RotatingFileHandler(
+            str(LOG_FILE), maxBytes=10 * 1024 * 1024, backupCount=5
+        )
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(logging.Formatter(
+            "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
+        ))
+        handlers.append(file_handler)
+    except (OSError, PermissionError):
+        pass  # Log to stdout only (Docker captures it)
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
-        handlers=[logging.StreamHandler(), file_handler],
+        handlers=handlers,
     )
 
     # Flask app — templates live in project_root/templates
