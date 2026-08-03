@@ -10,6 +10,7 @@ Tools:
 - get_lead_info: Get lead information
 """
 import json
+import os
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -20,7 +21,7 @@ from agent.context import ContextManager
 
 logger = logging.getLogger("agent.tools")
 
-CONFIG_PATH = Path(__file__).parent.parent / "config.json"
+CONFIG_PATH = Path(os.environ.get("CONFIG_PATH", str(Path(__file__).parent.parent / "config.json")))
 
 
 def _load_config() -> dict:

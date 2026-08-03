@@ -9,6 +9,7 @@ Tracks:
 - Scheduled actions (follow-ups, reminders)
 """
 import json
+import os
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -18,7 +19,7 @@ from agent.memory import VectorMemory
 
 logger = logging.getLogger("agent.context")
 
-CONFIG_PATH = Path(__file__).parent.parent / "config.json"
+CONFIG_PATH = Path(os.environ.get("CONFIG_PATH", str(Path(__file__).parent.parent / "config.json")))
 
 
 def _load_config() -> dict:

@@ -5,6 +5,7 @@ Checks scheduled_actions table and sends reminders when due.
 Runs as a background thread in Flask.
 """
 import json
+import os
 import logging
 import threading
 import time
@@ -18,7 +19,7 @@ from agent.tools import AgentTools
 
 logger = logging.getLogger("agent.scheduler")
 
-CONFIG_PATH = Path(__file__).parent.parent / "config.json"
+CONFIG_PATH = Path(os.environ.get("CONFIG_PATH", str(Path(__file__).parent.parent / "config.json")))
 
 
 def _load_config() -> dict:

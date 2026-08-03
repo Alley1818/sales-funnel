@@ -285,8 +285,9 @@ class AIBrain:
 
     @staticmethod
     def _load_config() -> dict:
+        import os
         from pathlib import Path
-        config_path = Path(__file__).parent.parent / "config.json"
+        config_path = Path(os.environ.get("CONFIG_PATH", str(Path(__file__).parent.parent / "config.json")))
         if config_path.exists():
             return json.loads(config_path.read_text())
         return {}
