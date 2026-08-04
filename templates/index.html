@@ -197,7 +197,7 @@
                 <div class="grid gap-4 md:grid-cols-3">
                     <div class="rounded-lg border bg-card shadow-sm p-4">
                         <div class="flex justify-between mb-2"><span class="text-sm font-medium">WhatsApp</span><span id="wa-badge" class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-secondary text-secondary-foreground">--</span></div>
-                        <p class="text-xs text-muted-foreground mb-2">Evolution API v2.3.2</p>
+                        <p id="wa-phone" class="text-xs text-muted-foreground mb-2">Evolution API v2.3.2</p>
                         <div id="wa-qr-section" class="hidden mb-2"><div class="rounded border bg-muted/50 p-2 text-center"><p class="text-[10px] text-muted-foreground mb-1">Отсканируйте в WhatsApp</p><img id="wa-qr-img" class="mx-auto rounded" style="width:140px;height:140px"></div></div>
                         <div class="flex gap-1"><button onclick="loadQR()" class="flex-1 h-8 rounded border text-xs hover:bg-accent">Обновить QR</button><button onclick="reconnectWA()" class="flex-1 h-8 rounded border text-xs hover:bg-accent">Переподключить</button></div>
                     </div>
@@ -975,6 +975,16 @@ function startVoiceInput(){
     rec.onerror=()=>{btn.textContent='🎤'};
     rec.onend=()=>{btn.textContent='🎤'};
     rec.start();
+}
+
+async function loadWAInfo(){
+    try{
+        const r=await fetch('/api/whatsapp/info');
+        const d=await r.json();
+        if(d.phone){
+            document.getElementById('wa-phone').textContent='+'+d.phone+' • Evolution API v2.3.2';
+        }
+    }catch(e){}
 }
 </script>
 </body>
