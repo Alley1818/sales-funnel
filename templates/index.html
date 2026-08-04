@@ -211,6 +211,14 @@
                         <p class="text-xs text-muted-foreground mb-1">SIP Сервер</p>
                         <div class="text-xs space-y-0.5"><div class="flex justify-between"><span class="text-muted-foreground">SIP</span><span class="font-mono">:5060</span></div><div class="flex justify-between"><span class="text-muted-foreground">ARI</span><span class="font-mono">:8089</span></div><div class="flex justify-between"><span class="text-muted-foreground">Транк</span><span id="ast-trunk">--</span></div></div>
                     </div>
+                    <div class="rounded-lg border bg-card shadow-sm p-4">
+                        <h3 class="text-sm font-medium mb-2">📞 Тест звонок</h3>
+                        <div class="flex gap-2">
+                            <input id="test-call-phone" type="text" placeholder="77071234567" class="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+                            <button onclick="testCall()" class="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground h-8 px-3 text-sm font-medium">Позвонить</button>
+                        </div>
+                        <p id="test-call-result" class="text-xs mt-2 text-muted-foreground"></p>
+                    </div>
                 </div>
                 <div class="rounded-lg border bg-card shadow-sm"><div class="p-4 border-b"><h3 class="text-sm font-medium">Агенты по отраслям</h3></div><div class="p-4" id="industry-agents"><div class="skeleton h-16 w-full"></div></div></div>
                 <div class="rounded-lg border bg-card shadow-sm"><div class="p-4 border-b"><h3 class="text-sm font-medium">Статистика воронки</h3></div><div class="p-4"><div class="grid grid-cols-5 gap-4" id="stats"></div><div class="mt-3 h-1 w-full rounded-full bg-secondary overflow-hidden"><div id="prog" class="h-full rounded-full bg-primary transition-all" style="width:0"></div></div><p class="mt-1 text-[10px] text-muted-foreground" id="prog-txt">--</p></div></div>
@@ -897,6 +905,19 @@ async function initApp(){
     setInterval(()=>{if(!document.getElementById('panel-agents').classList.contains('hidden'))loadStatus()},15000);
 }
 initApp();
+
+async function testCall(){
+    const phone=document.getElementById('test-call-phone').value.trim();
+    const resultEl=document.getElementById('test-call-result');
+    if(!phone){resultEl.textContent='Введите номер';resultEl.className='text-xs mt-2 text-red-500';return}
+    resultEl.textContent='Звоню...';resultEl.className='text-xs mt-2 text-muted-foreground';
+    try{
+        const r=await fetch('/api/calls/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone})});
+        const d=await r.json();
+        if(d.ok){resultEl.textContent='✓ Звонок инициирован! ID: '+d.call_id;resultEl.className='text-xs mt-2 text-green-600'}
+        else{resultEl.textContent='✗ Ошибка: '+(d.error||'Unknown');resultEl.className='text-xs mt-2 text-red-500'}
+    }catch(e){resultEl.textContent='✗ Ошибка сети';resultEl.className='text-xs mt-2 text-red-500'}
+}
 </script>
 </body>
 </html>

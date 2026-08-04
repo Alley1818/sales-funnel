@@ -207,3 +207,36 @@ def pipecat_status():
         except Exception:
             pass
     return jsonify(result)
+
+
+@agent_bp.route("/api/calls/test", methods=["POST"])
+@require_auth
+def test_call():
+    """Make a test call to verify Pipecat + Asterisk connection."""
+    from pipecat_client import PipecatClient
+
+    data = request.get_json() or {}
+    phone = data.get("phone", "").strip()
+    if not phone:
+        return jsonify({"error": "phone required"}), 400
+
+    client = PipecatClient()
+    if not client.health():
+        return jsonify({"error": "Pipecat agent unavailable", "available": False}), 503
+
+    result = client.create_call(
+        phone=phone,
+        company_name="Тестовый звонок",
+        industry="test",
+        lead_id=None,
+    )
+
+    if result.error:
+        return jsonify({"ok": False, "error": result.error, "call_id": result.call_id}), 502
+
+    return jsonify({
+        "ok": True,
+        "call_id": result.call_id,
+        "status": result.status,
+        "phone": phone,
+    })
