@@ -145,19 +145,20 @@ class AsteriskARI:
         if not phone.startswith("+"):
             phone = f"+{phone}"
 
+        # Strip + for SIP trunk (Kazakhstan format: 7XXXXXXXXXX)
+        sip_phone = phone.lstrip("+")
+
         try:
             async with httpx.AsyncClient() as client:
                 r = await client.post(
                     f"{self.base}/channels",
                     params={
-                        "endpoint": f"{endpoint}/{phone}@tele2-endpoint",
+                        "endpoint": f"{endpoint}/{sip_phone}@tele2-endpoint",
                         "extension": "200",
                         "context": "outbound",
                         "priority": "1",
-                        "app": "sales-funnel",
-                        "appArgs": phone,
                         "callerId": CONFIG["agent"]["company"],
-                        "timeout": 30,
+                        "timeout": 60,
                     },
                     auth=self.auth,
                     timeout=10,
