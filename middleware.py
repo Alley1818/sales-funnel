@@ -183,30 +183,29 @@ def log_api_action(action: str, entity_type: str = "", entity_id: int = 0, detai
 # ==================== RATE LIMITING ====================
 
 RATE_LIMIT = 120  # per minute
-
+_rate_store = {}  # In-memory rate limiting (no SQLite, avoids lock with gunicorn workers)
 
 def check_rate(ip: str) -> bool:
-    conn = get_pooled_conn()
-    row = conn.execute(
-        "SELECT COUNT(*) as cnt FROM api_rate_log WHERE ip = ? AND called_at > datetime('now', '-1 minute')",
-        (ip,)
-    ).fetchone()
-    return (row["cnt"] or 0) < RATE_LIMIT
-
-
-_rate_cleanup_counter = 0
+    import time
+    now = time.time()
+    timestamps = _rate_store.get(ip, [])
+    # Keep only last minute
+    timestamps = [t for t in timestamps if now - t < 60]
+    _rate_store[ip] = timestamps
+    return len(timestamps) < RATE_LIMIT
 
 def record_rate(ip: str, endpoint: str):
-    global _rate_cleanup_counter
-    conn = get_pooled_conn()
-    conn.execute("INSERT INTO api_rate_log (ip, endpoint) VALUES (?,?)", (ip, endpoint))
-    conn.commit()
-    # Cleanup old entries only every 100th request to reduce DB overhead
-    _rate_cleanup_counter += 1
-    if _rate_cleanup_counter >= 100:
-        conn.execute("DELETE FROM api_rate_log WHERE called_at < datetime('now', '-10 minutes')")
-        conn.commit()
-        _rate_cleanup_counter = 0
+    import time
+    now = time.time()
+    if ip not in _rate_store:
+        _rate_store[ip] = []
+    _rate_store[ip].append(now)
+    # Cleanup old entries periodically
+    if len(_rate_store) > 1000:
+        for k in list(_rate_store.keys()):
+            _rate_store[k] = [t for t in _rate_store[k] if now - t < 60]
+            if not _rate_store[k]:
+                del _rate_store[k]
 
 
 def rate_limit_middleware():
