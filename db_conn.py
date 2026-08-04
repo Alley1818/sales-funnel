@@ -23,6 +23,7 @@ def get_conn() -> sqlite3.Connection:
             _conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
             _conn.row_factory = sqlite3.Row
             _conn.execute("PRAGMA foreign_keys=ON")
+            _conn.execute("PRAGMA journal_mode=WAL")
             logger.info("DB connection created")
         return _conn
 
