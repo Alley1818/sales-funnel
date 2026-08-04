@@ -526,6 +526,17 @@ def parse_and_execute(lead_id: int, llm_response: str) -> dict:
                 _escalate_to_manager(lead_id, reason)
                 result["actions_taken"].append(f"escalate:{reason}")
 
+            elif action_type == "send_kp":
+                # Send КП via WhatsApp
+                from app.services.kp_service import send_kp
+                industry = action.get("industry", lead.get("industry", "general"))
+                phone = action.get("phone") or lead.get("mobile") or lead.get("whatsapp", "")
+                if phone:
+                    kp_result = send_kp(lead_id, lead.get("company_name", ""), industry)
+                    result["actions_taken"].append(f"send_kp:{industry}:{phone}")
+                else:
+                    result["actions_taken"].append("send_kp:no_phone")
+
             else:
                 logger.warning("Unknown action type: %s", action_type)
                 result["actions_taken"].append(f"unknown:{action_type}")
