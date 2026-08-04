@@ -1,8 +1,6 @@
 services:
   flask-app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/alley1818/sales-funnel/flask-app:latest
     container_name: sales_funnel_app
     restart: unless-stopped
     ports:
@@ -67,9 +65,7 @@ services:
       retries: 3
 
   pipecat-agent:
-    build:
-      context: ./pipecat
-      dockerfile: Dockerfile
+    image: ghcr.io/alley1818/sales-funnel/pipecat-agent:latest
     container_name: pipecat_agent
     restart: unless-stopped
     ports:
@@ -100,9 +96,7 @@ services:
       retries: 3
 
   asterisk:
-    build:
-      context: ./asterisk
-      dockerfile: Dockerfile
+    image: ghcr.io/alley1818/sales-funnel/asterisk:latest
     container_name: asterisk
     restart: unless-stopped
     network_mode: host

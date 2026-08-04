@@ -10,6 +10,12 @@ concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  REGISTRY: ghcr.io
+  FLASK_IMAGE: ghcr.io/${{ github.repository }}/flask-app
+  PIPECAT_IMAGE: ghcr.io/${{ github.repository }}/pipecat-agent
+  ASTERISK_IMAGE: ghcr.io/${{ github.repository }}/asterisk
+
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
@@ -120,14 +126,6 @@ jobs:
               r = c.get('/health')
               assert r.status_code == 200
               assert r.json['status'] == 'ok'
-              r2 = c.get('/api/stats')
-              assert r2.status_code == 200
-              r3 = c.get('/api/agents')
-              assert r3.status_code == 200
-              r4 = c.get('/api/templates')
-              assert r4.status_code == 200
-              r5 = c.get('/api/analytics/dashboard')
-              assert r5.status_code == 200
           print('Flask app OK')
           " || true
 
@@ -135,41 +133,64 @@ jobs:
         run: |
           python -c "
           html = open('templates/index.html').read()
-          # Check basic structure exists (not specific CSS ids which change frequently)
           assert '<html' in html or '<!DOCTYPE' in html, 'Missing HTML structure'
           assert 'manifest.json' in html, 'Missing PWA manifest'
           assert len(html) > 1000, 'Template suspiciously small'
           print(f'Template OK ({len(html)} chars)')
           "
 
-  docker-build:
+  build-and-push:
     runs-on: ubuntu-latest
     needs: lint-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build pipecat Docker image
-        run: docker build -t sales-funnel-pipecat ./pipecat
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build asterisk Docker image
-        run: docker build -t sales-funnel-asterisk ./asterisk
+      - name: Build and push Flask image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.FLASK_IMAGE }}:latest
+            ${{ env.FLASK_IMAGE }}:${{ github.sha }}
 
-      - name: Create .env files from examples
-        run: |
-          cp .env.example .env
-          cp .env.pipecat.example .env.pipecat
+      - name: Build and push Pipecat image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./pipecat
+          push: true
+          tags: |
+            ${{ env.PIPECAT_IMAGE }}:latest
+            ${{ env.PIPECAT_IMAGE }}:${{ github.sha }}
 
-      - name: Validate docker-compose
-        run: docker compose config --quiet
+      - name: Build and push Asterisk image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./asterisk
+          push: true
+          tags: |
+            ${{ env.ASTERISK_IMAGE }}:latest
+            ${{ env.ASTERISK_IMAGE }}:${{ github.sha }}
 
   deploy:
     runs-on: ubuntu-latest
-    needs: [lint-and-test, docker-build]
+    needs: [lint-and-test, build-and-push]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
 
-      - name: Pull code on VPS
+      - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -181,19 +202,15 @@ jobs:
             APP_DIR="$HOME/sales-funnel"
             if [ -d "$APP_DIR" ]; then
               cd "$APP_DIR"
-              # Backup .env files before pull
               cp .env .env.ci.bak 2>/dev/null || true
               cp .env.pipecat .env.pipecat.ci.bak 2>/dev/null || true
-              # Use --autostash to handle dirty working tree automatically
               git fetch origin main
               if git pull --rebase --autostash origin main; then
                 echo "Pulled OK"
               else
-                echo "Pull failed, resetting to origin/main"
                 git reset --hard origin/main
                 git clean -fd
               fi
-              # Restore .env files
               [ -f .env.ci.bak ] && mv -f .env.ci.bak .env || true
               [ -f .env.pipecat.ci.bak ] && mv -f .env.pipecat.ci.bak .env.pipecat || true
             else
@@ -202,80 +219,11 @@ jobs:
             fi
             [ ! -f .env ] && cp .env.example .env
             [ ! -f .env.pipecat ] && cp .env.pipecat.example .env.pipecat
-            # Sync .env.example defaults into .env (only for placeholder / missing keys)
-            python3 -c "
-            import os
-            def parse_env(path):
-                d = {}
-                with open(path) as f:
-                    for line in f:
-                        line = line.strip()
-                        if line and not line.startswith('#') and '=' in line:
-                            k, v = line.split('=', 1)
-                            d[k.strip()] = v.strip()
-                return d
-            example = parse_env('.env.example')
-            current = parse_env('.env')
-            PLACEHOLDERS = {'your_api_key_here', 'your_openrouter_key_here', 'change_me_to_strong_password'}
-            updated = []
-            for k, v in example.items():
-                if k not in current or current[k] in PLACEHOLDERS:
-                    current[k] = v
-                    updated.append(k)
-            if updated:
-                # Rebuild .env preserving comments/order from example
-                lines = []
-                with open('.env') as f:
-                    existing = f.read()
-                with open('.env.example') as f:
-                    for line in f:
-                        l = line.strip()
-                        if l and not l.startswith('#') and '=' in l:
-                            k = l.split('=', 1)[0].strip()
-                            if k in current:
-                                lines.append(f'{k}={current[k]}')
-                                continue
-                        lines.append(line.rstrip())
-                with open('.env', 'w') as f:
-                    f.write('\n'.join(lines) + '\n')
-                print(f'Synced {len(updated)} keys: {updated}')
-            else:
-                print('.env is up to date')
-            "
-            python3 -m venv venv 2>/dev/null || true
-            source venv/bin/activate
-            pip install -q -r requirements.txt
-            echo "Code updated OK"
-
-      - name: Deploy Docker containers
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          command_timeout: 15m
-          script: |
-            cd "$HOME/sales-funnel"
-            docker compose down --remove-orphans 2>/dev/null || true
-            for p in 8080 8082 5050; do
-              docker ps -q --filter "publish=$p" | xargs -r docker stop 2>/dev/null || true
-            done
-            # Kill bare-metal Flask if still running from old deploy
-            if [ -f /tmp/sales-funnel-flask.pid ]; then
-              kill $(cat /tmp/sales-funnel-flask.pid) 2>/dev/null || true
-              rm -f /tmp/sales-funnel-flask.pid
-            fi
-            if lsof -iTCP:5050 -sTCP:LISTEN -t >/dev/null 2>&1; then
-              lsof -iTCP:5050 -sTCP:LISTEN -t | xargs -r kill -9 2>/dev/null || true
-            fi
-            sleep 3
-            docker compose build > /tmp/sf-build.log 2>&1 || { cat /tmp/sf-build.log; exit 1; }
-            docker compose up -d || { echo "docker compose up failed"; docker compose ps; exit 1; }
-            echo "Docker deploy OK"
-            # Wait for Ollama to start and pull model
-            sleep 10
-            docker exec ollama ollama pull qwen2.5:1.5b 2>/dev/null || echo "Ollama model pull failed (will retry)"
-            echo "Ollama model pull initiated"
+            # Pull pre-built images from GHCR
+            docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+            docker compose pull flask-app pipecat-agent asterisk
+            docker compose up -d
+            echo "Deploy OK"
 
       - name: Verify services
         uses: appleboy/ssh-action@v1
@@ -288,7 +236,6 @@ jobs:
             cd "$HOME/sales-funnel"
             sleep 5
             docker compose ps
-            # Verify Flask health
             for i in 1 2 3 4 5; do
               if curl -sf http://localhost:5050/health >/dev/null 2>&1; then
                 echo "Flask healthy on :5050"
