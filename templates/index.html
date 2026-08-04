@@ -922,13 +922,38 @@ async function testCall(){
     const phone=document.getElementById('test-call-phone').value.trim();
     const resultEl=document.getElementById('test-call-result');
     if(!phone){resultEl.textContent='Введите номер';resultEl.className='text-xs mt-2 text-red-500';return}
-    resultEl.textContent='Звоню...';resultEl.className='text-xs mt-2 text-muted-foreground';
+    resultEl.textContent='📞 Звоню...';resultEl.className='text-xs mt-2 text-blue-600';
     try{
         const r=await fetch('/api/calls/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone})});
         const d=await r.json();
-        if(d.ok){resultEl.textContent='✓ Звонок инициирован! ID: '+d.call_id;resultEl.className='text-xs mt-2 text-green-600'}
-        else{resultEl.textContent='✗ Ошибка: '+(d.error||'Unknown');resultEl.className='text-xs mt-2 text-red-500'}
+        if(d.ok){
+            resultEl.textContent='📞 Звонок инициирован → статус: queued';resultEl.className='text-xs mt-2 text-blue-600';
+            pollCallStatus(d.call_id,resultEl);
+        }else{
+            resultEl.textContent='✗ Ошибка: '+(d.error||'Unknown');resultEl.className='text-xs mt-2 text-red-500';
+        }
     }catch(e){resultEl.textContent='✗ Ошибка сети';resultEl.className='text-xs mt-2 text-red-500'}
+}
+async function pollCallStatus(callId,resultEl){
+    const labels={queued:'⏳ В очереди',ringing:'📞 Звонит',connected:'🟢 На линии',completed:'✅ Завершён',failed:'❌ Ошибка'};
+    for(let i=0;i<30;i++){
+        await new Promise(r=>setTimeout(r,2000));
+        try{
+            const r=await fetch('/api/calls/poll/'+callId);
+            const d=await r.json();
+            const st=d.status||'unknown';
+            const label=labels[st]||st;
+            let extra='';
+            if(d.result)extra=' — '+d.result;
+            if(d.duration)extra+=' ('+d.duration+'с)';
+            resultEl.textContent=label+extra;
+            resultEl.className='text-xs mt-2 '+(st==='completed'?'text-green-600':st==='failed'?'text-red-500':'text-blue-600');
+            if(st==='completed'||st==='failed'){
+                loadCallLog();
+                return;
+            }
+        }catch(e){}
+    }
 }
 
 let agentChatHistory=[];

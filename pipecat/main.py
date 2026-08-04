@@ -150,9 +150,9 @@ class AsteriskARI:
                 r = await client.post(
                     f"{self.base}/channels",
                     params={
-                        "endpoint": f"{endpoint}/{phone}@sip-trunk",
+                        "endpoint": f"{endpoint}/{phone}@tele2-endpoint",
                         "extension": "200",
-                        "context": "from-pipecat",
+                        "context": "outbound",
                         "priority": "1",
                         "app": "sales-funnel",
                         "appArgs": phone,

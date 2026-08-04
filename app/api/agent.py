@@ -214,6 +214,7 @@ def pipecat_status():
 def test_call():
     """Make a test call to verify Pipecat + Asterisk connection."""
     from pipecat_client import PipecatClient
+    from db_conn import get_conn
 
     data = request.get_json() or {}
     phone = data.get("phone", "").strip()
@@ -231,7 +232,28 @@ def test_call():
         lead_id=None,
     )
 
+    # Log to call_log
+    try:
+        conn = get_conn()
+        conn.execute(
+            "INSERT INTO call_log (lead_id, call_type, result, duration_sec, transcript) VALUES (?,?,?,?,?)",
+            (0, "test", result.status, 0, f"call_id={result.call_id}, phone={phone}")
+        )
+        conn.commit()
+    except Exception as e:
+        logger.warning("Failed to log test call: %s", e)
+
     if result.error:
+        # Log failure
+        try:
+            conn = get_conn()
+            conn.execute(
+                "INSERT INTO call_log (lead_id, call_type, result, duration_sec, transcript) VALUES (?,?,?,?,?)",
+                (0, "test", "failed", 0, f"error={result.error}, phone={phone}")
+            )
+            conn.commit()
+        except Exception:
+            pass
         return jsonify({"ok": False, "error": result.error, "call_id": result.call_id}), 502
 
     return jsonify({
@@ -240,6 +262,43 @@ def test_call():
         "status": result.status,
         "phone": phone,
     })
+
+
+@agent_bp.route("/api/calls/poll/<call_id>")
+@require_auth
+def poll_call(call_id):
+    """Poll call status from Pipecat."""
+    from pipecat_client import PipecatClient
+
+    client = PipecatClient()
+    if not client.health():
+        return jsonify({"error": "Pipecat unavailable"}), 503
+
+    try:
+        import requests as req
+        pipecat_url = os.environ.get("PIPECAT_URL", "http://pipecat-agent:8082")
+        r = req.get(f"{pipecat_url}/calls/{call_id}", timeout=10)
+        data = r.json()
+
+        # Update call_log if call finished
+        if data.get("status") in ("completed", "failed"):
+            try:
+                from db_conn import get_conn
+                conn = get_conn()
+                conn.execute(
+                    "UPDATE call_log SET result=?, duration_sec=?, transcript=? WHERE transcript LIKE ?",
+                    (data.get("result", "unknown"),
+                     int((data.get("duration") or 0)),
+                     (data.get("transcript") or "")[:500],
+                     f"%call_id={call_id}%")
+                )
+                conn.commit()
+            except Exception:
+                pass
+
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @agent_bp.route("/api/calls/chat", methods=["POST"])
