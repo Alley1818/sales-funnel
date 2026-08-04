@@ -91,7 +91,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 256M
           cpus: "2.0"
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8082/health')"]
@@ -168,7 +168,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2G
+          memory: 512M
           cpus: "2.0"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/"]

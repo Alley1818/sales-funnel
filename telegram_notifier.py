@@ -53,6 +53,11 @@ async def send_telegram(text: str) -> bool:
 
 def _send_telegram_sync(text: str) -> bool:
     """Synchronous Telegram send using httpx.Client (no asyncio)."""
+    # Filter empty or meaningless messages
+    if not text or not text.strip() or text.strip() in ("-", "—", ".", "null", "undefined"):
+        logger.warning("Telegram: skipping empty/trivial message: %r", text)
+        return False
+
     cfg = _load_config()
     bot_token = cfg.get("telegram_bot_token", os.getenv("TELEGRAM_BOT_TOKEN", ""))
     chat_id = cfg.get("telegram_chat_id", os.getenv("TELEGRAM_CHAT_ID", ""))
