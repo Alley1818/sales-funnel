@@ -240,3 +240,30 @@ def test_call():
         "status": result.status,
         "phone": phone,
     })
+
+
+@agent_bp.route("/api/calls/chat", methods=["POST"])
+@require_auth
+def agent_chat():
+    """Chat with voice agent — text in, text + audio out."""
+    import requests as req
+
+    data = request.get_json() or {}
+    message = data.get("message", "").strip()
+    history = data.get("history", [])
+
+    if not message:
+        return jsonify({"error": "message required"}), 400
+
+    pipecat_url = os.environ.get("PIPECAT_URL", "http://pipecat-agent:8082")
+
+    try:
+        r = req.post(f"{pipecat_url}/chat", json={
+            "message": message,
+            "history": history,
+        }, timeout=60)
+        return jsonify(r.json())
+    except req.ConnectionError:
+        return jsonify({"error": "Pipecat agent unavailable"}), 503
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

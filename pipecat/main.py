@@ -582,3 +582,51 @@ async def media_websocket(ws: WebSocket):
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8082, log_level="info")
+
+
+# ---- Browser chat endpoint ----
+
+class ChatRequest(BaseModel):
+    message: str
+    history: Optional[list] = None
+
+class ChatResponse(BaseModel):
+    reply: str
+    audio_b64: Optional[str] = None
+    transcript: list
+
+@app.post("/chat", response_model=ChatResponse)
+async def browser_chat(req: ChatRequest):
+    """Text chat with voice response — for browser testing."""
+    import base64
+
+    system_prompt = SALES_PROMPT.format(
+        agent_name=CONFIG["agent"]["name"],
+        company_name=CONFIG["agent"]["company"],
+        company_name2="клиент",
+        industry="",
+    )
+
+    history = req.history or []
+    history.append({"role": "user", "content": req.message})
+
+    # Get LLM response
+    response_text = await pipeline.get_response(req.message, system_prompt, history)
+    history.append({"role": "assistant", "content": response_text})
+
+    # Generate TTS
+    audio_b64 = None
+    try:
+        audio_bytes = await pipeline.speak(response_text)
+        if audio_bytes:
+            audio_b64 = base64.b64encode(audio_bytes).decode()
+    except Exception as e:
+        logger.warning("TTS failed: %s", e)
+
+    transcript = [{"role": m["role"], "text": m["content"]} for m in history]
+
+    return ChatResponse(
+        reply=response_text,
+        audio_b64=audio_b64,
+        transcript=transcript,
+    )
