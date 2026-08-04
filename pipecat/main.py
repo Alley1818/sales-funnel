@@ -153,7 +153,7 @@ class AsteriskARI:
                 r = await client.post(
                     f"{self.base}/channels",
                     params={
-                        "endpoint": f"{endpoint}/{sip_phone}@tele2-endpoint",
+                        "endpoint": f"Local/{sip_phone}@outbound",
                         "extension": "200",
                         "context": "outbound",
                         "priority": "1",
