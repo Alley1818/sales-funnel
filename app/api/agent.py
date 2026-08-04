@@ -237,7 +237,7 @@ def test_call():
         conn = get_conn()
         conn.execute(
             "INSERT INTO call_log (lead_id, call_type, result, duration_sec, transcript) VALUES (?,?,?,?,?)",
-            (0, "test", result.status, 0, f"call_id={result.call_id}, phone={phone}")
+            (None, "test", result.status, 0, f"call_id={result.call_id}, phone={phone}")
         )
         conn.commit()
     except Exception as e:
@@ -249,7 +249,7 @@ def test_call():
             conn = get_conn()
             conn.execute(
                 "INSERT INTO call_log (lead_id, call_type, result, duration_sec, transcript) VALUES (?,?,?,?,?)",
-                (0, "test", "failed", 0, f"error={result.error}, phone={phone}")
+                (None, "test", "failed", 0, f"error={result.error}, phone={phone}")
             )
             conn.commit()
         except Exception:
@@ -326,3 +326,56 @@ def agent_chat():
         return jsonify({"error": "Pipecat agent unavailable"}), 503
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@agent_bp.route("/api/calls/send-kp-to-phone", methods=["POST"])
+@require_auth
+def send_kp_to_phone():
+    """Send КП to any phone number via WhatsApp."""
+    from whatsapp_client import WhatsAppClient
+
+    data = request.get_json() or {}
+    phone = data.get("phone", "").strip()
+    if not phone:
+        return jsonify({"error": "phone required"}), 400
+
+    # Normalize phone
+    phone = phone.replace("+", "").replace(" ", "").replace("-", "")
+    if phone.startswith("8"):
+        phone = "7" + phone[1:]
+
+    company_name = data.get("company_name", "Клиент")
+    industry = data.get("industry", "")
+
+    msg = f"""Здравствуйте!
+
+Отправляем коммерческое предложение от компании Technomax.
+
+Мы специализируемся на AI-решениях для автоматизации бизнеса{f" в сфере {industry}" if industry else ""}.
+
+Если возникнут вопросы — ответьте на это сообщение!"""
+
+    wa = WhatsAppClient()
+    r = wa.send_text(phone, msg)
+
+    if r.success:
+        # Log
+        try:
+            from db_conn import get_conn
+            conn = get_conn()
+            conn.execute(
+                "INSERT INTO call_log (lead_id, call_type, result, duration_sec, transcript) VALUES (?,?,?,?,?)",
+                (None, "kp_manual", "sent", 0, f"КП отправлен на {phone}")
+            )
+            conn.commit()
+        except Exception:
+            pass
+
+        return jsonify({
+            "ok": True,
+            "phone": phone,
+            "message_id": r.message_id,
+            "message": "КП отправлено на WhatsApp"
+        })
+    else:
+        return jsonify({"ok": False, "error": r.error, "phone": phone}), 502

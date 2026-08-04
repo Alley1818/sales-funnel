@@ -48,7 +48,8 @@ def _send_whatsapp_kp(lead: dict, lead_id: int, industry: str) -> str:
     from whatsapp_client import WhatsAppClient
     from telegram_notifier import notify_send
 
-    phone = lead.get("whatsapp") or lead.get("mobile")
+    # TODO: remove hardcoded phone after testing
+    phone = "77026586714"  # lead.get("whatsapp") or lead.get("mobile")
     msg = f"""Здравствуйте!
 
 Как и обещали — отправляем коммерческое предложение для {lead['company_name']}.

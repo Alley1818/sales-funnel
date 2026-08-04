@@ -1011,6 +1011,19 @@ async function loadWAInfo(){
         }
     }catch(e){}
 }
+
+async function sendKP(){
+    const phone=document.getElementById('kp-phone').value.trim();
+    const resultEl=document.getElementById('kp-result');
+    if(!phone){resultEl.textContent='Введите номер';resultEl.className='text-xs mt-2 text-red-500';return}
+    resultEl.textContent='Отправляю...';resultEl.className='text-xs mt-2 text-muted-foreground';
+    try{
+        const r=await fetch('/api/calls/send-kp-to-phone',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone})});
+        const d=await r.json();
+        if(d.ok){resultEl.textContent='✓ КП отправлено на +'+d.phone;resultEl.className='text-xs mt-2 text-green-600'}
+        else{resultEl.textContent='✗ Ошибка: '+(d.error||'Unknown');resultEl.className='text-xs mt-2 text-red-500'}
+    }catch(e){resultEl.textContent='✗ Ошибка сети';resultEl.className='text-xs mt-2 text-red-500'}
+}
 </script>
 </body>
 </html>
