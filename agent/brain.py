@@ -140,7 +140,7 @@ class AIBrain:
 {{
   "reply": "текст сообщения клиенту",
   "actions": [
-    {{"type": "send_kp", "industry": "название отрасли"}},
+    {{"type": "send_kp", "industry": "название отрасли", "phone": "77071234567"}},
     {{"type": "schedule_followup", "days": 2}},
     {{"type": "escalate_manager", "reason": "причина"}}
   ]
@@ -150,7 +150,7 @@ class AIBrain:
 
     def _describe_tools(self) -> str:
         """Describe available tools for the LLM."""
-        return """- send_kp: Отправить коммерческое предложение. Параметры: industry (отрасль)
+        return """- send_kp: Отправить коммерческое предложение. Параметры: industry (отрасль), phone (номер телефона, опционально — если клиент просит отправить на конкретный номер)
 - send_presentation: Отправить презентацию. Параметры: industry (отрасль)
 - update_status: Обновить статус лида. Параметры: status (new/called/interested/negotiating/closed/lost)
 - schedule_followup: Запланировать напоминание. Параметры: days (через сколько дней)
@@ -261,7 +261,8 @@ class AIBrain:
     def _execute_tool(self, lead_id: int, lead_data: dict, action: dict) -> dict:
         """Execute a tool action."""
         action_type = action.get("type", "")
-        phone = lead_data.get("mobile") or lead_data.get("whatsapp", "")
+        # Allow action to override phone number (e.g. "отправь КП на 77071234567")
+        phone = action.get("phone") or lead_data.get("mobile") or lead_data.get("whatsapp", "")
 
         if action_type == "send_kp":
             industry = action.get("industry", lead_data.get("industry", "general"))
