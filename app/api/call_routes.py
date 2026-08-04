@@ -113,3 +113,65 @@ def call_schedule():
         "schedule": get_schedule_info(),
         "retries": get_retry_stats(),
     })
+
+
+# Статусы звонков как в Technomax
+CALL_STATUS_LABELS = {
+    "interested": {"label": "Заинтересован", "color": "green"},
+    "callback": {"label": "Перезвонить", "color": "yellow"},
+    "refused": {"label": "Отказ", "color": "red"},
+    "no_answer": {"label": "Не ответил", "color": "gray"},
+    "busy": {"label": "Занято", "color": "orange"},
+    "wrong_number": {"label": "Неверный номер", "color": "red"},
+    "voicemail": {"label": "Голосовая почта", "color": "gray"},
+    "completed": {"label": "Завершён", "color": "blue"},
+    "failed": {"label": "Ошибка", "color": "red"},
+    "queued": {"label": "В очереди", "color": "blue"},
+    "ringing": {"label": "Звонит", "color": "yellow"},
+    "connected": {"label": "На линии", "color": "green"},
+}
+
+
+@call_bp.route("/api/call/status-labels")
+@require_auth
+def call_status_labels():
+    """Return call status labels for UI."""
+    return jsonify(CALL_STATUS_LABELS)
+
+
+@call_bp.route("/api/call/export")
+@require_auth
+def call_export():
+    """Export call history as CSV."""
+    import csv
+    import io
+    from flask import Response
+    from db_conn import get_conn
+
+    conn = get_conn()
+    rows = conn.execute("""
+        SELECT cl.id, cl.lead_id, l.company_name, l.mobile, l.industry,
+               cl.call_type, cl.result, cl.duration_sec, cl.transcript, cl.created_at
+        FROM call_log cl
+        JOIN leads l ON cl.lead_id = l.id
+        ORDER BY cl.created_at DESC
+    """).fetchall()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["ID", "Lead ID", "Компания", "Телефон", "Отрасль",
+                     "Тип звонка", "Результат", "Длительность (сек)", "Транскрипт", "Время"])
+
+    for r in rows:
+        result_label = CALL_STATUS_LABELS.get(r["result"], {}).get("label", r["result"])
+        writer.writerow([
+            r["id"], r["lead_id"], r["company_name"], r["mobile"], r["industry"],
+            r["call_type"], result_label, r["duration_sec"],
+            (r["transcript"] or "")[:200], r["created_at"]
+        ])
+
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=call_history.csv"}
+    )
