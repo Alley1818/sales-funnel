@@ -280,21 +280,24 @@ def poll_call(call_id):
         r = req.get(f"{pipecat_url}/calls/{call_id}", timeout=10)
         data = r.json()
 
-        # Update call_log if call finished
+        # Update call_log if call finished (retry on locked DB)
         if data.get("status") in ("completed", "failed"):
-            try:
-                from db_conn import get_conn
-                conn = get_conn()
-                conn.execute(
-                    "UPDATE call_log SET result=?, duration_sec=?, transcript=? WHERE transcript LIKE ?",
-                    (data.get("result", "unknown"),
-                     int((data.get("duration") or 0)),
-                     (data.get("transcript") or "")[:500],
-                     f"%call_id={call_id}%")
-                )
-                conn.commit()
-            except Exception:
-                pass
+            import time
+            for attempt in range(3):
+                try:
+                    from db_conn import get_conn
+                    conn = get_conn()
+                    conn.execute(
+                        "UPDATE call_log SET result=?, duration_sec=?, transcript=? WHERE transcript LIKE ?",
+                        (data.get("result", "unknown"),
+                         int((data.get("duration") or 0)),
+                         (data.get("transcript") or "")[:500],
+                         f"%call_id={call_id}%")
+                    )
+                    conn.commit()
+                    break
+                except Exception:
+                    time.sleep(0.5)
 
         return jsonify(data)
     except Exception as e:
