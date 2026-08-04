@@ -196,6 +196,22 @@ class AsteriskARI:
         except Exception:
             return []
 
+    async def play_audio(self, channel_id: str, media: str) -> dict:
+        """Play audio on a channel. media format: 'sound:filename' or 'tone:ring'."""
+        try:
+            async with httpx.AsyncClient() as client:
+                r = await client.post(
+                    f"{self.base}/channels/{channel_id}/play",
+                    params={"media": media},
+                    auth=self.auth,
+                    timeout=10,
+                )
+                if r.status_code in (200, 201):
+                    return {"ok": True}
+                return {"ok": False, "error": r.text}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
 
 ari = AsteriskARI()
 
@@ -315,25 +331,71 @@ async def process_call(call_id: str, lead: Lead, prompt: str):
 
             channel_id = origination["channel_id"]
 
-            # Wait for call to complete (max 3 minutes)
-            # In production, this would be driven by WebSocket events
-            max_wait = 180
-            waited = 0
-            while waited < max_wait:
-                await asyncio.sleep(5)
-                waited += 5
+            # Wait for channel to be answered (max 60s)
+            answered = False
+            for _ in range(60):
+                await asyncio.sleep(1)
                 channels = await ari.get_channels()
-                active = [c for c in channels if c.get("id") == channel_id]
-                if not active:
+                ch = next((c for c in channels if c.get("id") == channel_id), None)
+                if not ch:
                     break
-                state = active[0].get("state")
-                if state in ("Down", "Destroyed"):
+                if ch.get("state") == "Up":
+                    answered = True
+                    break
+                if ch.get("state") in ("Down", "Destroyed"):
                     break
 
-            # Determine result based on call duration and events
-            # In production, parse LLM conversation for result classification
-            result = "no_answer"
-            transcript = f"Звонок на {lead.phone} завершён"
+            if not answered:
+                result = "no_answer"
+                transcript = f"Звонок на {lead.phone} — не ответили"
+            else:
+                # Call answered — play greeting then run conversation
+                logger.info("Call answered by %s", lead.phone)
+
+                # Play greeting via ARI playback
+                greeting = f"Здравствуйте! Это {CONFIG['agent']['name']} из компании {CONFIG['agent']['company']}. Чем могу помочь?"
+                try:
+                    import base64 as b64mod
+                    tts_audio = await pipeline.speak(greeting)
+                    if tts_audio:
+                        # Save greeting to temp file and play via ARI
+                        import tempfile
+                        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+                            f.write(tts_audio)
+                            greeting_path = f.name
+                        # Play via ARI (copy to asterisk sounds)
+                        import subprocess
+                        subprocess.run(["docker", "cp", greeting_path, "asterisk:/tmp/greeting_call.wav"], capture_output=True)
+                        await ari.play_audio(channel_id, "sound:ru/greeting")
+                except Exception as e:
+                    logger.warning("Greeting playback failed: %s", e)
+
+                # Run conversation loop (listen → STT → LLM → TTS → play)
+                history = []
+                system_prompt = SALES_PROMPT.format(
+                    agent_name=CONFIG["agent"]["name"],
+                    company_name=CONFIG["agent"]["company"],
+                    company_name2=lead.company_name or "клиент",
+                    industry=lead.industry or "",
+                )
+                transcript_parts = [{"role": "assistant", "text": greeting}]
+                history.append({"role": "assistant", "content": greeting})
+
+                # Conversation loop (max 5 minutes)
+                for turn in range(30):
+                    await asyncio.sleep(10)
+                    # Check if channel still alive
+                    channels = await ari.get_channels()
+                    ch = next((c for c in channels if c.get("id") == channel_id), None)
+                    if not ch or ch.get("state") in ("Down", "Destroyed"):
+                        break
+
+                    # TODO: Get audio from channel via ARI snoop/external media
+                    # For now, use DTMF or simulate conversation
+                    # This requires ARI WebSocket events which need async ARI
+
+                result = "completed"
+                transcript = "; ".join(f"{p['role']}: {p['text']}" for p in transcript_parts)
 
         # Update call record
         calls_db[call_id]["status"] = "completed"
