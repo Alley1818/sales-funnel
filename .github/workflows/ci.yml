@@ -12,9 +12,9 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  FLASK_IMAGE: ghcr.io/${{ github.repository }}/flask-app
-  PIPECAT_IMAGE: ghcr.io/${{ github.repository }}/pipecat-agent
-  ASTERISK_IMAGE: ghcr.io/${{ github.repository }}/asterisk
+  FLASK_IMAGE: ghcr.io/alley1818/sales-funnel/flask-app
+  PIPECAT_IMAGE: ghcr.io/alley1818/sales-funnel/pipecat-agent
+  ASTERISK_IMAGE: ghcr.io/alley1818/sales-funnel/asterisk
 
 jobs:
   lint-and-test:
