@@ -113,6 +113,53 @@ def lead_detail(lead_id):
     })
 
 
+@leads_bp.route("/api/leads/<int:lead_id>", methods=["PUT"])
+@require_auth
+def update_lead(lead_id):
+    """Update lead fields (company, contact info, status, notes, industry)."""
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "JSON required"}), 400
+    conn = get_conn()
+    lead = conn.execute("SELECT * FROM leads WHERE id = ?", (lead_id,)).fetchone()
+    if not lead:
+        return jsonify({"error": "Not found"}), 404
+
+    allowed = [
+        "company_name", "phone", "mobile", "whatsapp", "email",
+        "industry", "status", "notes", "city", "region",
+    ]
+    sets, params = [], []
+    for field in allowed:
+        if field in data:
+            sets.append(f"{field} = ?")
+            params.append(data[field])
+    if not sets:
+        return jsonify({"error": "No fields to update"}), 400
+    sets.append("updated_at = CURRENT_TIMESTAMP")
+    params.append(lead_id)
+    conn.execute(f"UPDATE leads SET {', '.join(sets)} WHERE id = ?", params)
+    conn.commit()
+    return jsonify({"ok": True})
+
+
+@leads_bp.route("/api/leads/<int:lead_id>", methods=["DELETE"])
+@require_auth
+def delete_lead(lead_id):
+    """Delete a lead and its related data."""
+    conn = get_conn()
+    lead = conn.execute("SELECT * FROM leads WHERE id = ?", (lead_id,)).fetchone()
+    if not lead:
+        return jsonify({"error": "Not found"}), 404
+    conn.execute("DELETE FROM conversations WHERE lead_id = ?", (lead_id,))
+    conn.execute("DELETE FROM lead_context WHERE lead_id = ?", (lead_id,))
+    conn.execute("DELETE FROM lead_scores WHERE lead_id = ?", (lead_id,))
+    conn.execute("DELETE FROM sentiment_log WHERE lead_id = ?", (lead_id,))
+    conn.execute("DELETE FROM leads WHERE id = ?", (lead_id,))
+    conn.commit()
+    return jsonify({"ok": True})
+
+
 @leads_bp.route("/api/leads/export")
 @require_auth
 def leads_export():

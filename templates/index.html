@@ -48,6 +48,21 @@
         .sandbox-typing span:nth-child(2){animation-delay:0.2s}
         .sandbox-typing span:nth-child(3){animation-delay:0.4s}
         @keyframes typingBounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-4px)}}
+        /* Lead card timeline */
+        .lc-timeline{position:relative;padding-left:28px}
+        .lc-timeline::before{content:'';position:absolute;left:10px;top:4px;bottom:4px;width:1.5px;background:hsl(var(--border))}
+        .lc-timeline-item{position:relative;padding-bottom:16px}
+        .lc-timeline-item:last-child{padding-bottom:0}
+        .lc-timeline-dot{position:absolute;left:-24px;top:2px;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:hsl(var(--card));border:1.5px solid hsl(var(--border))}
+        .lc-timeline-dot svg{width:10px;height:10px}
+        .lc-timeline-item[data-type="status_change"] .lc-timeline-dot{border-color:#8b5cf6;background:#f3e8ff}
+        .lc-timeline-item[data-type="kp_sent"] .lc-timeline-dot{border-color:#0891b2;background:#ecfeff}
+        .lc-timeline-item[data-type="call_result"] .lc-timeline-dot{border-color:#d97706;background:#fffbeb}
+        .dark .lc-timeline-item[data-type="status_change"] .lc-timeline-dot{background:#4c1d95}
+        .dark .lc-timeline-item[data-type="kp_sent"] .lc-timeline-dot{background:#164e63}
+        .dark .lc-timeline-item[data-type="call_result"] .lc-timeline-dot{background:#451a03}
+        .lc-field-label{font-size:11px;font-weight:500;color:hsl(var(--muted-foreground));margin-bottom:2px;display:flex;align-items:center;gap:4px}
+        .lc-field-label svg{width:12px;height:12px;flex-shrink:0}
     </style>
 </head>
 <body class="min-h-screen">
@@ -505,7 +520,10 @@
                 <!-- KP & Follow-up Settings -->
                 <div class="grid gap-4 md:grid-cols-2 mt-4">
                     <div class="rounded-lg border bg-card shadow-sm">
-                        <div class="p-4 border-b"><h3 class="text-sm font-medium">КП и Презентации</h3></div>
+                        <div class="p-4 border-b flex items-center gap-2">
+                            <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <h3 class="text-sm font-medium">КП и Презентации</h3>
+                        </div>
                         <div class="p-4 space-y-3">
                             <div class="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
                                 <input type="file" id="kp-file" accept=".pdf,.docx,.doc,.txt,.md" class="hidden" onchange="uploadKP()">
@@ -533,6 +551,50 @@
                         </div>
                     </div>
                 </div>
+                <!-- KP Email Template Settings -->
+                <div class="rounded-lg border bg-card shadow-sm mt-4">
+                    <div class="p-4 border-b flex items-center gap-2">
+                        <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                        <h3 class="text-sm font-medium">КП и Email шаблоны</h3>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="text-xs font-medium text-muted-foreground">Путь к файлу КП</label>
+                                    <input id="kp-file-path" placeholder="/path/to/document.pdf" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm mt-1">
+                                    <p class="text-[11px] text-muted-foreground mt-1">Абсолютный путь к PDF/DOCX файлу для вложения в email и WhatsApp</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="saveKPConfig()" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
+                                        <span class="flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Сохранить</span>
+                                    </button>
+                                    <button onclick="previewKPTemplate()" class="h-9 px-4 rounded-md border text-sm hover:bg-accent">
+                                        <span class="flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>Просмотр</span>
+                                    </button>
+                                </div>
+                                <div id="kp-cfg-msg" class="text-xs"></div>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-xs font-medium text-muted-foreground">Шаблон email (HTML)</label>
+                                <textarea id="kp-email-template" rows="12" class="flex w-full rounded-md border bg-background px-2 py-1 text-sm font-mono text-xs" placeholder="Оставьте пустым для стандартного шаблона Technomax. Используйте {company_name} и {industry} как переменные."></textarea>
+                                <p class="text-[11px] text-muted-foreground">Если пусто -- используется встроенный шаблон. Переменные: {company_name}, {industry}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Preview Modal (hidden) -->
+                <div id="kp-preview-overlay" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeKPPreview()">
+                    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col">
+                        <div class="p-4 border-b flex items-center justify-between">
+                            <h3 class="text-sm font-medium">Предпросмотр шаблона КП</h3>
+                            <button onclick="closeKPPreview()" class="p-1 rounded hover:bg-gray-100"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+                        </div>
+                        <div class="flex-1 overflow-auto p-1">
+                            <iframe id="kp-preview-frame" class="w-full h-[70vh] border-0"></iframe>
+                        </div>
+                    </div>
+                </div>
                 <div class="mt-4 flex justify-end">
                     <button onclick="doLogout()" class="h-9 px-4 rounded-md border border-destructive text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground">Выйти из аккаунта</button>
                 </div>
@@ -554,6 +616,97 @@
 
 <!-- Confirm Delete Modal -->
 <div id="confirm-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('confirm-modal')"><div class="modal" style="max-width:380px"><h3 class="text-base font-semibold mb-2" id="confirm-title">Подтверждение</h3><p class="text-sm text-muted-foreground mb-4" id="confirm-text">Вы уверены?</p><div class="flex gap-2 justify-end"><button onclick="closeModal('confirm-modal')" class="h-9 px-4 rounded-md border text-sm hover:bg-accent">Отмена</button><button id="confirm-btn" class="h-9 px-4 rounded-md bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90">Удалить</button></div></div></div>
+
+<!-- Lead Card Modal -->
+<div id="lead-card-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('lead-card-modal')">
+<div class="modal" style="max-width:700px;width:95%">
+    <div class="flex items-start justify-between mb-4">
+        <div class="flex-1 mr-3">
+            <label class="lc-field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> Компания</label>
+            <input id="lc-company" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm font-semibold" placeholder="Название компании">
+        </div>
+        <div class="flex items-center gap-2 flex-shrink-0">
+            <span id="lc-status-badge" class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold"></span>
+            <button onclick="closeModal('lead-card-modal')" class="h-8 w-8 rounded border hover:bg-accent flex items-center justify-center text-sm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4 mb-4">
+        <!-- Left: Contact Info -->
+        <div class="space-y-3">
+            <div>
+                <label class="lc-field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg> Телефон</label>
+                <input id="lc-phone" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm font-mono" placeholder="+7...">
+            </div>
+            <div>
+                <label class="lc-field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg> WhatsApp</label>
+                <input id="lc-whatsapp" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm font-mono" placeholder="+7...">
+            </div>
+            <div>
+                <label class="lc-field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Email</label>
+                <input id="lc-email" type="email" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm" placeholder="email@example.com">
+            </div>
+        </div>
+        <!-- Right: Business Info -->
+        <div class="space-y-3">
+            <div>
+                <label class="lc-field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg> Отрасль</label>
+                <input id="lc-industry" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm" placeholder="Отрасль">
+            </div>
+            <div>
+                <label class="lc-field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Статус</label>
+                <select id="lc-status" class="flex h-9 w-full rounded-md border bg-background px-2 text-sm">
+                    <option value="new">new</option>
+                    <option value="called">called</option>
+                    <option value="interested">interested</option>
+                    <option value="callback">callback</option>
+                    <option value="sent_wa">sent_wa</option>
+                    <option value="sent_email">sent_email</option>
+                    <option value="refused">refused</option>
+                    <option value="done">done</option>
+                    <option value="lost">lost</option>
+                </select>
+            </div>
+            <div>
+                <label class="lc-field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> Оценка</label>
+                <div id="lc-score" class="flex h-9 items-center px-2 text-sm"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="mb-4">
+        <label class="lc-field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Заметки</label>
+        <textarea id="lc-notes" rows="3" class="flex w-full rounded-md border bg-background px-2 py-1.5 text-sm mt-1" placeholder="Заметки по лиду..."></textarea>
+    </div>
+
+    <!-- Timeline -->
+    <div class="mb-4">
+        <label class="lc-field-label mb-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Активность</label>
+        <div id="lc-timeline" class="lc-timeline text-xs max-h-48 overflow-y-auto pr-1">
+            <div class="text-muted-foreground">Загрузка...</div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="flex gap-2 justify-between pt-3 border-t">
+        <button onclick="lcDeleteLead()" class="h-9 px-4 rounded-md border border-destructive text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground flex items-center gap-1.5">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            Удалить
+        </button>
+        <div class="flex gap-2">
+            <button onclick="closeModal('lead-card-modal')" class="h-9 px-4 rounded-md border text-sm hover:bg-accent">Закрыть</button>
+            <button onclick="saveLeadCard()" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center gap-1.5">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Сохранить
+            </button>
+        </div>
+    </div>
+    <input type="hidden" id="lc-id" value="">
+</div>
+</div>
 
 <!-- Toast container -->
 <div class="toast-container" id="toast-container"></div>
@@ -625,7 +778,7 @@ function showPanel(n,el){
     if(n==='leads')loadLeads();
     if(n==='templates')loadTemplates();
     if(n==='newcampaign')loadCampaigns();
-    if(n==='settings'){loadSMTP();loadNotif();loadLLM();loadFB();loadWAPrompt();loadKPList();loadFollowupRules();}
+    if(n==='settings'){loadSMTP();loadNotif();loadLLM();loadFB();loadWAPrompt();loadKPList();loadKPConfig();loadFollowupRules();}
     // Close mobile sidebar
     if(window.innerWidth<768){document.getElementById('sidebar').classList.add('hidden');document.getElementById('sidebar').classList.remove('flex');document.getElementById('sidebar-overlay').classList.remove('show')}
 }
@@ -646,7 +799,7 @@ async function loadLeads(sort){
         el.innerHTML=d.leads.map(l=>{
             const sc={hot:'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',warm:'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',cold:'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'};
             const st={new:'bg-blue-100 text-blue-700',called:'bg-purple-100 text-purple-700',interested:'bg-green-100 text-green-700',sent_wa:'bg-teal-100 text-teal-700',sent_email:'bg-cyan-100 text-cyan-700',refused:'bg-red-100 text-red-700'};
-            return`<tr class="border-b hover:bg-muted/50 cursor-pointer" onclick="openLeadDetail(${l.id})">
+            return`<tr class="border-b hover:bg-muted/50 cursor-pointer" onclick="openLeadCard(${l.id})">
                 <td class="p-3" onclick="event.stopPropagation()"><input type="checkbox" class="l-check" value="${l.id}"></td>
                 <td class="p-3 text-xs font-medium">${l.company_name||'--'}</td>
                 <td class="p-3 text-xs text-muted-foreground">${l.industry||'--'}</td>
@@ -667,29 +820,7 @@ async function loadLeads(sort){
     }catch(e){console.error(e)}
 }
 
-async function openLeadDetail(id){
-    try{
-        const d=await(await fetch('/api/leads/'+id)).json();
-        const c=document.getElementById('lead-detail-content');
-        const scoreHtml=d.score?`<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${d.score.category==='hot'?'bg-red-100 text-red-700':'bg-secondary'}">${d.score.score} ${d.score.category}</span>`:'<span class="text-xs text-muted-foreground">Не оценён</span>';
-        c.innerHTML=`
-            <div class="flex justify-between items-start mb-4">
-                <div><h3 class="text-lg font-semibold">${d.lead.company_name||'--'}</h3><p class="text-sm text-muted-foreground">${d.lead.industry||'--'}</p></div>
-                <button onclick="closeModal('lead-detail-modal')" class="h-8 w-8 rounded border hover:bg-accent text-sm">✕</button>
-            </div>
-            <div class="grid grid-cols-2 gap-4 mb-4">
-                <div class="text-xs space-y-1"><div><span class="text-muted-foreground">Телефон:</span> ${d.lead.mobile||d.lead.phone||'--'}</div><div><span class="text-muted-foreground">WhatsApp:</span> ${d.lead.whatsapp||'--'}</div><div><span class="text-muted-foreground">Email:</span> ${d.lead.email||'--'}</div><div><span class="text-muted-foreground">Город:</span> ${d.lead.city||'--'}</div></div>
-                <div class="text-xs space-y-1"><div><span class="text-muted-foreground">Статус:</span> ${d.lead.status||'--'}</div><div><span class="text-muted-foreground">Оценка:</span> ${scoreHtml}</div><div><span class="text-muted-foreground">Последний контакт:</span> ${d.context?.last_contact_at||'--'}</div><div><span class="text-muted-foreground">Канал:</span> ${d.context?.last_channel||'--'}</div></div>
-            </div>
-            ${d.sentiment&&d.sentiment.length?`<div class="mb-4"><h4 class="text-sm font-medium mb-2">Sentiment</h4><div class="flex gap-1">${d.sentiment.map(s=>`<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${s.sentiment==='positive'?'bg-green-100 text-green-700':s.sentiment==='negative'?'bg-red-100 text-red-700':s.sentiment==='angry'?'bg-red-200 text-red-800':'bg-secondary'}">${s.sentiment}</span>`).join('')}</div></div>`:''}
-            ${d.history&&d.history.length?`<div><h4 class="text-sm font-medium mb-2">История общения</h4><div class="space-y-1 max-h-48 overflow-y-auto">${d.history.map(h=>`<div class="text-xs p-2 rounded border"><span class="text-muted-foreground">[${h.channel}]</span> <span class="font-medium">${h.direction==='inbound'?'Клиент':'Агент'}:</span> ${h.content?.substring(0,150)||'--'}</div>`).join('')}</div></div>`:'<p class="text-xs text-muted-foreground">Нет истории общения</p>'}
-            <div class="flex gap-2 mt-4">
-                <button onclick="requestTransfer(${id})" class="h-9 px-4 rounded-md border text-sm hover:bg-accent">Перевести менеджеру</button>
-                <button onclick="closeModal('lead-detail-modal')" class="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Закрыть</button>
-            </div>`;
-        openModal('lead-detail-modal');
-    }catch(e){toast('Ошибка загрузки','error')}
-}
+async function openLeadDetail(id){return openLeadCard(id)}
 
 function toggleSelectAll(){const all=document.getElementById('l-select-all').checked;document.querySelectorAll('.l-check').forEach(c=>c.checked=all)}
 function getSelectedLeads(){return Array.from(document.querySelectorAll('.l-check:checked')).map(c=>parseInt(c.value))}
@@ -895,6 +1026,51 @@ async function loadKPList(){
     }catch(e){}
 }
 async function deleteKP(id){try{await fetch('/api/kp/'+id,{method:'DELETE'});toast('Удалено','success');loadKPList()}catch(e){toast('Ошибка','error')}}
+
+// ---- KP Email Template Config ----
+async function loadKPConfig(){
+    try{
+        const d=await(await fetch('/api/config/kp')).json();
+        document.getElementById('kp-file-path').value=d.kp_file_path||'';
+        document.getElementById('kp-email-template').value=d.kp_email_template||'';
+    }catch(e){}
+}
+async function saveKPConfig(){
+    try{
+        await fetch('/api/config/kp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+            kp_file_path:document.getElementById('kp-file-path').value.trim(),
+            kp_email_template:document.getElementById('kp-email-template').value
+        })});
+        const msg=document.getElementById('kp-cfg-msg');
+        msg.innerHTML='<span class="text-green-600">Настройки КП сохранены</span>';
+        setTimeout(()=>msg.innerHTML='',3000);
+    }catch(e){toast('Ошибка сохранения','error')}
+}
+function previewKPTemplate(){
+    const custom=document.getElementById('kp-email-template').value.trim();
+    let html=custom||'';
+    if(!html){
+        // Fetch default template via API preview
+        fetch('/api/config/kp').then(r=>r.json()).then(d=>{
+            html=d.kp_email_template||'';
+            if(!html)html='<html><body style="padding:20px;font-family:sans-serif"><p>Стандартный шаблон будет использован. Отправьте КП для предпросмотра.</p></body></html>';
+            _showKPPreview(html);
+        });
+        return;
+    }
+    _showKPPreview(html);
+}
+function _showKPPreview(html){
+    html=html.replace(/\{company_name\}/g,'Тестовая компания').replace(/\{industry\}/g,'IT');
+    const overlay=document.getElementById('kp-preview-overlay');
+    const frame=document.getElementById('kp-preview-frame');
+    overlay.classList.remove('hidden');
+    frame.srcdoc=html;
+}
+function closeKPPreview(){
+    document.getElementById('kp-preview-overlay').classList.add('hidden');
+    document.getElementById('kp-preview-frame').srcdoc='';
+}
 
 // ---- Follow-up Rules ----
 async function loadFollowupRules(){
@@ -1269,6 +1445,97 @@ async function deleteLead(id){
         toast('Лид удалён','success');
         loadLeads();
     }catch(e){toast('Ошибка удаления','error')}
+}
+
+// ---- LEAD CARD ----
+const lcStColors={new:'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',called:'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',interested:'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',callback:'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',sent_wa:'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300',sent_email:'bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300',refused:'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',done:'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300',lost:'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'};
+
+async function openLeadCard(id){
+    try{
+        const d=await(await fetch('/api/leads/'+id)).json();
+        const lead=d.lead||d;
+        document.getElementById('lc-id').value=id;
+        document.getElementById('lc-company').value=lead.company_name||'';
+        document.getElementById('lc-phone').value=lead.mobile||lead.phone||'';
+        document.getElementById('lc-whatsapp').value=lead.whatsapp||'';
+        document.getElementById('lc-email').value=lead.email||'';
+        document.getElementById('lc-industry').value=lead.industry||'';
+        document.getElementById('lc-status').value=lead.status||'new';
+        document.getElementById('lc-notes').value=lead.notes||'';
+        // Status badge
+        const badge=document.getElementById('lc-status-badge');
+        badge.textContent=lead.status||'new';
+        badge.className='inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold '+(lcStColors[lead.status]||'bg-secondary');
+        // Score
+        const scoreEl=document.getElementById('lc-score');
+        if(d.score){
+            const sc={hot:'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',warm:'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',cold:'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'};
+            scoreEl.innerHTML=`<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${sc[d.score.category]||'bg-secondary'}">${d.score.score} ${d.score.category}</span>`;
+        }else{
+            scoreEl.innerHTML='<span class="text-muted-foreground">--</span>';
+        }
+        // Status badge live update
+        document.getElementById('lc-status').onchange=function(){
+            badge.textContent=this.value;
+            badge.className='inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold '+(lcStColors[this.value]||'bg-secondary');
+        };
+        openModal('lead-card-modal');
+        loadLeadTimeline(id);
+    }catch(e){toast('Ошибка загрузки лида','error');console.error(e)}
+}
+
+async function saveLeadCard(){
+    const id=document.getElementById('lc-id').value;
+    if(!id)return;
+    const data={
+        company_name:document.getElementById('lc-company').value,
+        mobile:document.getElementById('lc-phone').value,
+        whatsapp:document.getElementById('lc-whatsapp').value,
+        email:document.getElementById('lc-email').value,
+        industry:document.getElementById('lc-industry').value,
+        status:document.getElementById('lc-status').value,
+        notes:document.getElementById('lc-notes').value
+    };
+    try{
+        const r=await fetch('/api/leads/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+        if(r.ok){toast('Сохранено','success');loadLeads()}else{const e=await r.json();toast(e.error||'Ошибка','error')}
+    }catch(e){toast('Ошибка сохранения','error')}
+}
+
+async function loadLeadTimeline(id){
+    const el=document.getElementById('lc-timeline');
+    el.innerHTML='<div class="text-muted-foreground">Загрузка...</div>';
+    try{
+        const d=await(await fetch('/api/leads/'+id+'/timeline?limit=10')).json();
+        if(!d.events||!d.events.length){el.innerHTML='<div class="text-muted-foreground">Нет событий</div>';return}
+        const icons={
+            message:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
+            status_change:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>',
+            kp_sent:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+            call_result:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>'
+        };
+        el.innerHTML=d.events.map(ev=>{
+            const icon=icons[ev.event_type]||icons.message;
+            const dt=ev.created_at?new Date(ev.created_at).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+            const ch=ev.channel?`<span class="text-muted-foreground">[${ev.channel}]</span> `:'';
+            const content=(ev.content||'').substring(0,120);
+            return`<div class="lc-timeline-item" data-type="${ev.event_type||'message'}"><div class="lc-timeline-dot">${icon}</div><div><span class="text-muted-foreground">${dt}</span> ${ch}<span>${content}</span></div></div>`;
+        }).join('');
+    }catch(e){el.innerHTML='<div class="text-muted-foreground">Ошибка загрузки</div>'}
+}
+
+function lcDeleteLead(){
+    const id=document.getElementById('lc-id').value;
+    if(!id)return;
+    const name=document.getElementById('lc-company').value||'лид #'+id;
+    confirmAction('Удалить лид?',name,async()=>{
+        try{
+            await fetch('/api/leads/'+id,{method:'DELETE'});
+            toast('Лид удалён','success');
+            closeModal('lead-card-modal');
+            loadLeads();
+        }catch(e){toast('Ошибка удаления','error')}
+    });
 }
 
 </script>

@@ -109,40 +109,134 @@ class EmailSender:
 
 
 def build_kp_html(company_name: str, industry: str) -> str:
-    """Build commercial proposal HTML."""
+    """Build commercial proposal HTML — professional corporate template.
+
+    Inline CSS only, mobile-responsive (max-width 600px), no emojis.
+    Template variables: {company_name}, {industry}.
+    """
     safe_name = html.escape(company_name, quote=True)
     safe_industry = html.escape(industry, quote=True)
-    return f"""
-    <html>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto;">
-    <div style="background: #1a1a2e; color: white; padding: 24px; border-radius: 8px 8px 0 0;">
-        <h1 style="margin: 0; font-size: 20px;">Коммерческое предложение</h1>
-        <p style="margin: 8px 0 0; opacity: 0.8; font-size: 14px;">Для {safe_name}</p>
-    </div>
-    <div style="padding: 24px; border: 1px solid #e2e5ea; border-top: none; border-radius: 0 0 8px 8px;">
-        <p>Здравствуйте!</p>
-        <p>Мы специализируемся на AI-решениях для автоматизации бизнес-процессов
-        в сфере <strong>{safe_industry}</strong> и хотели бы предложить сотрудничество.</p>
-        <h3 style="margin-top: 20px;">Что мы предлагаем:</h3>
-        <ul>
-            <li>Голосовые AI-боты для обзвона клиентов</li>
-            <li>Чат-боты для WhatsApp и Telegram</li>
-            <li>CRM-интеграция и аналитика</li>
-            <li>Автоматизация продаж и коллекций</li>
-        </ul>
-        <h3>Наши преимущества:</h3>
-        <ul>
-            <li>Опыт работы в вашей отрасли</li>
-            <li>Внедрение от 3 дней</li>
-            <li>Поддержка 24/7</li>
-            <li>Гибкие тарифы</li>
-        </ul>
-        <p>Будем рады обсудить детали в удобное для вас время.</p>
-        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e5ea;">
-            <p style="margin: 0;"><strong>С уважением,</strong></p>
-            <p style="margin: 4px 0; color: #666;">Команда Technomax</p>
-        </div>
-    </div>
-    </body>
-    </html>
-    """
+    return f'''<!DOCTYPE html>
+<html lang="ru">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f5f7;">
+<tr><td align="center" style="padding:24px 12px;">
+
+<!-- Container -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+
+<!-- Header -->
+<tr><td style="background-color:#1a1a2e;padding:32px 28px;">
+  <p style="margin:0;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:#6b7280;">Technomax</p>
+  <h1 style="margin:8px 0 0;font-size:22px;font-weight:700;color:#ffffff;">Коммерческое предложение</h1>
+  <p style="margin:6px 0 0;font-size:14px;color:#9ca3af;">Подготовлено для {safe_name}</p>
+</td></tr>
+
+<!-- Body -->
+<tr><td style="padding:28px;">
+
+  <!-- Greeting -->
+  <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#1f2937;">Здравствуйте!</p>
+  <p style="margin:0 0 24px;font-size:15px;line-height:1.65;color:#374151;">
+    Благодарим за интерес к сотрудничеству. Мы подготовили для <strong>{safe_name}</strong>
+    персональное предложение по автоматизации процессов в сфере
+    <strong>{safe_industry}</strong> с использованием технологий искусственного интеллекта.
+  </p>
+
+  <!-- Divider -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="border-top:1px solid #e5e7eb;height:1px;font-size:0;line-height:0;">&nbsp;</td></tr></table>
+
+  <!-- Section: Наши решения -->
+  <h2 style="margin:24px 0 12px;font-size:17px;font-weight:700;color:#1a1a2e;">Наши решения</h2>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+    <tr><td style="padding:8px 0;font-size:14px;color:#374151;line-height:1.55;">
+      <span style="display:inline-block;width:20px;color:#2563eb;font-weight:700;">1.</span>
+      Голосовые AI-боты для автоматического обзвона клиентов и сбора обратной связи
+    </td></tr>
+    <tr><td style="padding:8px 0;font-size:14px;color:#374151;line-height:1.55;">
+      <span style="display:inline-block;width:20px;color:#2563eb;font-weight:700;">2.</span>
+      Интеллектуальные чат-боты для WhatsApp и Telegram с поддержкой диалогов
+    </td></tr>
+    <tr><td style="padding:8px 0;font-size:14px;color:#374151;line-height:1.55;">
+      <span style="display:inline-block;width:20px;color:#2563eb;font-weight:700;">3.</span>
+      Полная интеграция с CRM и автоматическая квалификация лидов
+    </td></tr>
+    <tr><td style="padding:8px 0;font-size:14px;color:#374151;line-height:1.55;">
+      <span style="display:inline-block;width:20px;color:#2563eb;font-weight:700;">4.</span>
+      Автоматизация цикла продаж и напоминаний для повторных продаж
+    </td></tr>
+    <tr><td style="padding:8px 0;font-size:14px;color:#374151;line-height:1.55;">
+      <span style="display:inline-block;width:20px;color:#2563eb;font-weight:700;">5.</span>
+      Аналитика эффективности и отчёты по воронке в реальном времени
+    </td></tr>
+  </table>
+
+  <!-- Divider -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="border-top:1px solid #e5e7eb;height:1px;font-size:0;line-height:0;">&nbsp;</td></tr></table>
+
+  <!-- Section: Почему Technomax -->
+  <h2 style="margin:24px 0 12px;font-size:17px;font-weight:700;color:#1a1a2e;">Почему Technomax</h2>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+    <tr><td style="padding:10px 14px;font-size:14px;color:#374151;line-height:1.55;border-left:3px solid #2563eb;margin-bottom:8px;">
+      <strong>Экспертиза в {safe_industry}</strong> -- более 50 успешных внедрений в вашей отрасли
+    </td></tr>
+    <tr><td style="height:8px;font-size:0;line-height:0;">&nbsp;</td></tr>
+    <tr><td style="padding:10px 14px;font-size:14px;color:#374151;line-height:1.55;border-left:3px solid #2563eb;">
+      <strong>Быстрое внедрение</strong> -- от 3 рабочих дней до запуска пилотного проекта
+    </td></tr>
+    <tr><td style="height:8px;font-size:0;line-height:0;">&nbsp;</td></tr>
+    <tr><td style="padding:10px 14px;font-size:14px;color:#374151;line-height:1.55;border-left:3px solid #2563eb;">
+      <strong>Поддержка 24/7</strong> -- персональный менеджер и техническая поддержка
+    </td></tr>
+    <tr><td style="height:8px;font-size:0;line-height:0;">&nbsp;</td></tr>
+    <tr><td style="padding:10px 14px;font-size:14px;color:#374151;line-height:1.55;border-left:3px solid #2563eb;">
+      <strong>Гибкие тарифы</strong> -- оплата за результат, без скрытых комиссий
+    </td></tr>
+  </table>
+
+  <!-- Divider -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="border-top:1px solid #e5e7eb;height:1px;font-size:0;line-height:0;">&nbsp;</td></tr></table>
+
+  <!-- Section: Следующие шаги -->
+  <h2 style="margin:24px 0 12px;font-size:17px;font-weight:700;color:#1a1a2e;">Следующие шаги</h2>
+  <p style="margin:0 0 20px;font-size:14px;line-height:1.65;color:#374151;">
+    Мы готовы провести бесплатную демонстрацию решения, адаптированного под ваш бизнес.
+    Ответьте на это письмо или свяжитесь с нами по указанным ниже контактам, чтобы
+    назначить удобное время.
+  </p>
+  <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
+    <tr>
+      <td style="background-color:#2563eb;border-radius:6px;">
+        <a href="https://technomax.pro" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;">Записаться на демо</a>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Signature -->
+  <div style="margin-top:32px;padding-top:20px;border-top:1px solid #e5e7eb;">
+    <p style="margin:0;font-size:14px;font-weight:600;color:#1a1a2e;">С уважением,</p>
+    <p style="margin:4px 0 0;font-size:14px;color:#6b7280;">Команда Technomax</p>
+  </div>
+</td></tr>
+
+<!-- Footer -->
+<tr><td style="background-color:#1a1a2e;padding:20px 28px;">
+  <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.6;">
+    Technomax -- AI-решения для бизнеса<br>
+    Web: <a href="https://technomax.pro" style="color:#60a5fa;text-decoration:none;">technomax.pro</a>
+    &nbsp;|&nbsp; Email: <a href="mailto:info@technomax.pro" style="color:#60a5fa;text-decoration:none;">info@technomax.pro</a>
+  </p>
+  <p style="margin:8px 0 0;font-size:11px;color:#6b7280;">
+    Вы получили это письмо, так как оставили заявку на нашем сайте. Если вы не хотите
+    получать рассылки, просто ответьте "Отписаться".
+  </p>
+</td></tr>
+
+</table>
+<!-- /Container -->
+
+</td></tr>
+</table>
+</body>
+</html>'''

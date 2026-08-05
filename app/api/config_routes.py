@@ -341,3 +341,32 @@ def set_wa_prompt():
     cfg["wa_agent_prompt"] = data.get("prompt", "")
     current_app.config["save_config"](cfg)
     return jsonify({"ok": True})
+
+
+# ---- KP / Email Template Config ----
+
+@config_bp.route("/api/config/kp", methods=["GET"])
+@require_auth
+def get_kp_config():
+    """Get KP attachment path and email template."""
+    cfg = current_app.config["load_config"]()
+    return jsonify({
+        "kp_file_path": cfg.get("kp_file_path", ""),
+        "kp_email_template": cfg.get("kp_email_template", ""),
+    })
+
+
+@config_bp.route("/api/config/kp", methods=["POST"])
+@require_auth
+def set_kp_config():
+    """Save KP attachment path and email template."""
+    data = request.get_json() or {}
+    cfg = current_app.config["load_config"]()
+
+    if "kp_file_path" in data:
+        cfg["kp_file_path"] = data["kp_file_path"]
+    if "kp_email_template" in data:
+        cfg["kp_email_template"] = data["kp_email_template"]
+
+    current_app.config["save_config"](cfg)
+    return jsonify({"ok": True})
