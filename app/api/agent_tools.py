@@ -3,10 +3,19 @@ Agent Tools — Flask endpoints for Technomax AI agent 'Лидген'.
 Called by the agent to send WhatsApp, email, create deals, schedule callbacks.
 No CSRF, no browser auth (called server-to-server by Technomax).
 """
+import json
 import logging
+from pathlib import Path
 from flask import Blueprint, request, jsonify
 
 logger = logging.getLogger("agent_tools")
+
+CONFIG_PATH = Path(__file__).parent.parent.parent / "config.json"
+
+def _load_config() -> dict:
+    if CONFIG_PATH.exists():
+        return json.loads(CONFIG_PATH.read_text())
+    return {}
 
 agent_tools_bp = Blueprint("agent_tools", __name__)
 
@@ -74,18 +83,41 @@ def send_whatsapp():
         lead = dict(lead)
         lead_id = lead["id"]
 
-    # Build the message
+    # Build the message — use template from config if available
     company = lead.get("company_name", "ваша компания")
-    msg = (
-        f"Здравствуйте! Меня зовут Лидген, я AI-ассистент компании Technomax.\n\n"
-        f"Мы специализируемся на AI-решениях для автоматизации бизнеса. "
-        f"Хотели бы обсудить, как можем помочь {company}.\n\n"
-        f"Ответьте на это сообщение, если интересно!"
-    )
+    cfg = _load_config()
+    template = cfg.get("whatsapp_template", "")
+    if template:
+        msg = template.replace("{company}", company).replace("{phone}", phone)
+    else:
+        msg = (
+            f"Здравствуйте! Это Technomax.\n\n"
+            f"Мы помогаем бизнесу автоматизировать процессы с помощью AI-решений. "
+            f"Подготовили коммерческое предложение для {company}.\n\n"
+            f"Если интересно — ответьте на это сообщение, и мы обсудим детали!"
+        )
 
-    # Send via Evolution API
+    # Try to send KP document if uploaded
     wa = WhatsAppClient()
-    result = wa.send_text(phone, msg)
+    kp_sent = False
+    try:
+        from agent.memory import VectorMemory
+        memory = VectorMemory()
+        kp_docs = memory.get_knowledge_by_industry("general", doc_type="kp")
+        if not kp_docs:
+            kp_docs = memory.get_knowledge_by_industry(lead.get("industry", ""), doc_type="kp")
+        if kp_docs:
+            kp_file = kp_docs[0].get("metadata", {}).get("file_path")
+            if kp_file and Path(kp_file).exists():
+                doc_result = wa.send_document(phone, kp_file, Path(kp_file).name, caption=msg[:1024])
+                if doc_result.success:
+                    kp_sent = True
+                    result = doc_result
+    except Exception as e:
+        logger.debug("KP doc send skipped: %s", e)
+
+    if not kp_sent:
+        result = wa.send_text(phone, msg)
 
     if not result.success:
         return jsonify({"error": f"WhatsApp send failed: {result.error}"}), 502
