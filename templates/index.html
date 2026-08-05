@@ -256,29 +256,52 @@
             <!-- ===== ПЕСОЧНИЦА АГЕНТА ===== -->
             <div id="panel-sandbox" class="panel hidden" style="height:calc(100vh - 7rem);">
                 <div class="flex h-full gap-0 rounded-xl border bg-card shadow-sm overflow-hidden">
+                    <!-- Contacts Sidebar -->
+                    <div class="w-72 border-r bg-muted/20 flex flex-col shrink-0">
+                        <div class="p-3 border-b">
+                            <div class="relative">
+                                <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                                <input id="sandbox-search" type="text" placeholder="Поиск лидов..." class="w-full h-9 pl-9 pr-3 rounded-lg border bg-background text-sm" oninput="filterSandboxContacts()">
+                            </div>
+                        </div>
+                        <div id="sandbox-contacts" class="flex-1 overflow-y-auto">
+                            <div class="text-xs text-muted-foreground text-center py-8">Загрузка...</div>
+                        </div>
+                        <div class="p-2 border-t">
+                            <button onclick="startNewSandboxChat()" class="w-full h-9 rounded-lg border text-xs hover:bg-accent flex items-center justify-center gap-2">
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                                Новый чат
+                            </button>
+                        </div>
+                    </div>
                     <!-- Chat Area -->
                     <div class="flex flex-col flex-1 min-w-0">
                         <!-- Top Bar -->
-                        <div class="flex items-center gap-3 px-4 py-3 border-b bg-card">
-                            <div class="flex-1">
-                                <div class="relative">
-                                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-                                    <input id="sandbox-phone" type="text" placeholder="Введите номер телефона" class="w-full h-10 pl-10 pr-4 rounded-xl border bg-background text-base shadow-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all" style="font-size:16px;">
-                                </div>
+                        <div id="sandbox-header" class="flex items-center gap-3 px-4 py-3 border-b bg-card">
+                            <div class="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold" id="sandbox-avatar">?</div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-medium truncate" id="sandbox-chat-name">Выберите контакт</div>
+                                <div class="text-xs text-muted-foreground" id="sandbox-chat-sub">или начните новый чат</div>
                             </div>
-                            <div class="text-right shrink-0">
-                                <div class="text-xs text-muted-foreground">Lead ID: <span id="sandbox-lead-id" class="font-mono">--</span></div>
-                                <div class="text-xs font-medium" id="sandbox-company-name">--</div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <span class="text-xs text-muted-foreground">ID: <span id="sandbox-lead-id" class="font-mono">--</span></span>
+                                <button onclick="clearSandbox()" class="h-7 w-7 rounded-md border hover:bg-accent flex items-center justify-center" title="Очистить">
+                                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                                </button>
                             </div>
                         </div>
                         <!-- Chat Messages -->
-                        <div id="sandbox-chat" class="flex-1 overflow-y-auto px-4 py-3 space-y-2" style="background:#e5ddd5;background-image:url('data:image/svg+xml,%3Csvg width=\"40\" height=\"40\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Cpath d=\"M0 0h40v40H0z\" fill=\"none\"/%3E%3Ccircle cx=\"20\" cy=\"20\" r=\"1\" fill=\"%230002\" opacity=\".3\"/%3E%3C/svg%3E');">
-                            <div class="text-center text-xs text-muted-foreground py-8">Начните диalog — введите номер и отправьте сообщение</div>
+                        <div id="sandbox-chat" class="flex-1 overflow-y-auto px-4 py-3 space-y-2" style="background:#e5ddd5;background-image:url('data:image/svg+xml,%3Csvg width=%2240%22 height=%2240%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cpath d=%22M0 0h40v40H0z%22 fill=%22none%22/%3E%3Ccircle cx=%2220%22 cy=%2220%22 r=%221%22 fill=%22%230002%22 opacity=%22.3%22/%3E%3C/svg%3E');">
+                            <div class="flex flex-col items-center justify-center h-full text-muted-foreground">
+                                <svg class="h-12 w-12 mb-3 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                                <p class="text-sm">Выберите контакт слева</p>
+                                <p class="text-xs mt-1">или начните новый чат</p>
+                            </div>
                         </div>
                         <!-- Message Input -->
                         <div class="flex items-center gap-2 px-4 py-3 border-t bg-card">
-                            <input id="sandbox-msg" type="text" placeholder="Введите сообщение..." class="flex-1 h-10 px-4 rounded-xl border bg-background text-sm shadow-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all" onkeydown="if(event.key==='Enter')sendSandboxMsg()">
-                            <button onclick="sendSandboxMsg()" class="h-10 w-10 rounded-xl bg-green-600 text-white flex items-center justify-center hover:bg-green-700 shadow-sm transition-colors shrink-0">
+                            <input id="sandbox-msg" type="text" placeholder="Введите сообщение..." class="flex-1 h-10 px-4 rounded-xl border bg-background text-sm shadow-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all" onkeydown="if(event.key==='Enter')sendSandboxMsg()" disabled>
+                            <button onclick="sendSandboxMsg()" id="sandbox-send-btn" class="h-10 w-10 rounded-xl bg-green-600 text-white flex items-center justify-center hover:bg-green-700 shadow-sm transition-colors shrink-0" disabled>
                                 <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
                             </button>
                         </div>
@@ -598,6 +621,7 @@ function showPanel(n,el){
     if(n==='dashboard')loadDashboard();
     if(n==='agents')loadStatus();
     if(n==='campaigns'){loadCallLog();orchStatus();}
+    if(n==='sandbox')loadSandboxContacts();
     if(n==='leads')loadLeads();
     if(n==='templates')loadTemplates();
     if(n==='newcampaign')loadCampaigns();
@@ -1088,13 +1112,84 @@ async function sendKP(){
 
 // ---- SANDBOX ----
 let sandboxHistory=[];
+let sandboxPhone='';
+let sandboxLeadId=null;
+let sandboxContacts=[];
+
+async function loadSandboxContacts(){
+    try{
+        const r=await fetch('/api/leads/list?limit=100');
+        const d=await r.json();
+        sandboxContacts=d.leads||[];
+        renderSandboxContacts(sandboxContacts);
+    }catch(e){
+        document.getElementById('sandbox-contacts').innerHTML='<div class="text-xs text-red-500 text-center py-4">Ошибка загрузки</div>';
+    }
+}
+
+function renderSandboxContacts(contacts){
+    const el=document.getElementById('sandbox-contacts');
+    if(!contacts.length){el.innerHTML='<div class="text-xs text-muted-foreground text-center py-8">Нет лидов</div>';return}
+    el.innerHTML=contacts.map(c=>{
+        const phone=c.mobile||c.whatsapp||c.phone||'';
+        const name=c.company_name||phone;
+        const initial=name.charAt(0).toUpperCase();
+        const statusColors={new:'bg-blue-500',interested:'bg-green-500',callback:'bg-yellow-500',refused:'bg-red-500',called:'bg-gray-500',sent_wa:'bg-emerald-500',sent_email:'bg-purple-500'};
+        const color=statusColors[c.status]||'bg-gray-400';
+        return `<div onclick="selectSandboxContact('${phone}','${name.replace(/'/g,"\\'")}',${c.id})" class="flex items-center gap-3 px-3 py-2.5 hover:bg-accent cursor-pointer border-b border-border/50 transition-colors">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${color} text-white text-xs font-semibold">${initial}</div>
+            <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium truncate">${name}</div>
+                <div class="text-xs text-muted-foreground truncate">${phone}</div>
+            </div>
+            <span class="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-medium ${color} text-white">${c.status||'new'}</span>
+        </div>`;
+    }).join('');
+}
+
+function filterSandboxContacts(){
+    const q=document.getElementById('sandbox-search').value.toLowerCase();
+    if(!q){renderSandboxContacts(sandboxContacts);return}
+    const filtered=sandboxContacts.filter(c=>(c.company_name||'').toLowerCase().includes(q)||(c.mobile||'').includes(q)||(c.phone||'').includes(q));
+    renderSandboxContacts(filtered);
+}
+
+function selectSandboxContact(phone,name,id){
+    sandboxPhone=phone;
+    sandboxLeadId=id;
+    sandboxHistory=[];
+    document.getElementById('sandbox-chat-name').textContent=name;
+    document.getElementById('sandbox-chat-sub').textContent=phone;
+    document.getElementById('sandbox-avatar').textContent=name.charAt(0).toUpperCase();
+    document.getElementById('sandbox-lead-id').textContent=id;
+    document.getElementById('sandbox-msg').disabled=false;
+    document.getElementById('sandbox-send-btn').disabled=false;
+    document.getElementById('sandbox-msg').focus();
+    document.getElementById('sandbox-chat').innerHTML='<div class="flex flex-col items-center justify-center h-full text-muted-foreground"><svg class="h-8 w-8 mb-2 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><p class="text-xs">Начните диалог с '+name+'</p></div>';
+    document.getElementById('sandbox-actions').innerHTML='<div class="text-xs text-muted-foreground text-center py-4">Нет действий</div>';
+}
+
+function startNewSandboxChat(){
+    const phone=prompt('Введите номер телефона:');
+    if(!phone)return;
+    sandboxPhone=phone.replace(/[^0-9+]/g,'');
+    sandboxLeadId=null;
+    sandboxHistory=[];
+    document.getElementById('sandbox-chat-name').textContent=sandboxPhone;
+    document.getElementById('sandbox-chat-sub').textContent='Новый чат';
+    document.getElementById('sandbox-avatar').textContent='#';
+    document.getElementById('sandbox-lead-id').textContent='auto';
+    document.getElementById('sandbox-msg').disabled=false;
+    document.getElementById('sandbox-send-btn').disabled=false;
+    document.getElementById('sandbox-msg').focus();
+    document.getElementById('sandbox-chat').innerHTML='<div class="flex flex-col items-center justify-center h-full text-muted-foreground"><p class="text-xs">Напишите первое сообщение</p></div>';
+}
+
 async function sendSandboxMsg(){
-    const phoneEl=document.getElementById('sandbox-phone');
+    if(!sandboxPhone){toast('Выберите контакт или начните новый чат','warning');return}
     const msgEl=document.getElementById('sandbox-msg');
-    const phone=phoneEl.value.trim();
     const msg=msgEl.value.trim();
-    if(!msg){toast('Введите сообщение','warning');return}
-    if(!phone){toast('Введите номер телефона','warning');phoneEl.focus();return}
+    if(!msg)return;
     msgEl.value='';
     addSandboxMsg('user',msg);
     sandboxHistory.push({role:'user',content:msg});
@@ -1107,19 +1202,18 @@ async function sendSandboxMsg(){
     chatEl.appendChild(typingDiv);
     chatEl.scrollTop=chatEl.scrollHeight;
     try{
-        const r=await fetch('/api/agent/test-chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,message:msg,history:sandboxHistory.slice(0,-1)})});
+        const r=await fetch('/api/agent/test-chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:sandboxPhone,message:msg})});
         const d=await r.json();
-        // Remove typing indicator
         const tp=document.getElementById('sandbox-typing');
         if(tp)tp.remove();
         if(d.error){addSandboxMsg('system','Ошибка: '+d.error);return}
         addSandboxMsg('agent',d.reply||d.message||JSON.stringify(d));
         sandboxHistory.push({role:'assistant',content:d.reply||d.message||''});
-        // Update lead info if returned
-        if(d.lead_id)document.getElementById('sandbox-lead-id').textContent=d.lead_id;
-        if(d.company_name)document.getElementById('sandbox-company-name').textContent=d.company_name;
-        // Show actions
-        if(d.actions&&d.actions.length){addSandboxActions(d.actions)}
+        if(d.lead_id){
+            document.getElementById('sandbox-lead-id').textContent=d.lead_id;
+            sandboxLeadId=d.lead_id;
+        }
+        if(d.actions_taken&&d.actions_taken.length){addSandboxActions(d.actions_taken)}
     }catch(e){
         const tp=document.getElementById('sandbox-typing');
         if(tp)tp.remove();
@@ -1128,8 +1222,8 @@ async function sendSandboxMsg(){
 }
 function addSandboxMsg(role,text){
     const el=document.getElementById('sandbox-chat');
-    // Remove placeholder if present
-    if(sandboxHistory.length<=1){const ph=el.querySelector('.text-center');if(ph)ph.remove()}
+    // Remove placeholder
+    const ph=el.querySelector('.flex.flex-col.items-center');if(ph)ph.remove();
     const d=document.createElement('div');
     d.className=role==='user'?'msg-user':role==='agent'?'msg-agent':'msg-system';
     const time=new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
@@ -1143,7 +1237,6 @@ function addSandboxMsg(role,text){
 }
 function addSandboxActions(actions){
     const el=document.getElementById('sandbox-actions');
-    // Remove placeholder
     if(el.querySelector('.text-center'))el.innerHTML='';
     actions.forEach(a=>{
         const type=typeof a==='string'?a:a.type||a.action||'unknown';
@@ -1151,17 +1244,23 @@ function addSandboxActions(actions){
         const d=document.createElement('div');
         const cls=['send_kp','escalate','schedule_callback','update_status','send_whatsapp'].includes(type)?type:'default';
         d.className='flex items-start gap-2 p-2 rounded border bg-background text-xs';
-        const labels={send_kp:'📄 КП',escalate:'🔴 Эскалация',schedule_callback:'📞 Callback',update_status:'📝 Статус',send_whatsapp:'💬 WhatsApp'};
+        const labels={send_kp:'КП отправлен',escalate:'Эскалация менеджеру',schedule_callback:'Запланирован звонок',update_status:'Статус обновлён',send_whatsapp:'WhatsApp сообщение'};
         d.innerHTML='<span class="msg-action-badge '+cls+'">'+(labels[type]||type)+'</span>'+(detail?'<span class="text-muted-foreground truncate">'+detail+'</span>':'');
         el.prepend(d);
     });
 }
 function clearSandbox(){
     sandboxHistory=[];
-    document.getElementById('sandbox-chat').innerHTML='<div class="text-center text-xs text-muted-foreground py-8">Начните диalog — введите номер и отправьте сообщение</div>';
+    sandboxPhone='';
+    sandboxLeadId=null;
+    document.getElementById('sandbox-chat').innerHTML='<div class="flex flex-col items-center justify-center h-full text-muted-foreground"><svg class="h-12 w-12 mb-3 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><p class="text-sm">Выберите контакт слева</p><p class="text-xs mt-1">или начните новый чат</p></div>';
     document.getElementById('sandbox-actions').innerHTML='<div class="text-xs text-muted-foreground text-center py-4">Нет действий</div>';
     document.getElementById('sandbox-lead-id').textContent='--';
-    document.getElementById('sandbox-company-name').textContent='--';
+    document.getElementById('sandbox-chat-name').textContent='Выберите контакт';
+    document.getElementById('sandbox-chat-sub').textContent='или начните новый чат';
+    document.getElementById('sandbox-avatar').textContent='?';
+    document.getElementById('sandbox-msg').disabled=true;
+    document.getElementById('sandbox-send-btn').disabled=true;
 }
 
 async function deleteLead(id){
