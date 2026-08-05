@@ -301,6 +301,18 @@ def wa_webhook():
         message = data.get("body", data.get("text", ""))
 
     if phone and message:
+        # Skip LID messages (WhatsApp Linked Identity — no phone number available)
+        if "@lid" in phone or phone.endswith("@lid"):
+            logger.info("Skipping WA LID message from %s", phone)
+            return jsonify({"ok": True})
+
+        # Skip manager phones (don't trigger bot for internal numbers)
+        MANAGER_PHONES = ["77761200700", "77773418838"]
+        digits = "".join(c for c in phone if c.isdigit())
+        if digits in MANAGER_PHONES:
+            logger.info("Skipping WA message from manager %s", phone)
+            return jsonify({"ok": True})
+
         from funnel_features import log_incoming_wa
         mid = log_incoming_wa(phone, message)
         logger.info("Incoming WA from %s: %s (id=%s)", phone, message[:50], mid)
