@@ -304,6 +304,7 @@ def build_prompt(lead: dict, timeline: list[dict], context: dict) -> str:
 - update_status: обновить статус лида (new, called, interested, negotiating, closed, lost)
 - schedule_callback: запланировать повторный контакт через N дней
 - escalate: передать на менеджера (когда клиент хочет поговорить с человеком)
+- send_kp: отправить коммерческое предложение (когда клиент просит КП или проявляет интерес). Параметры: industry (отрасль, если известна)
 
 Если действий не нужно — верни пустой массив actions: []
 </response_format>"""
