@@ -19,6 +19,31 @@ def _load_config() -> dict:
 
 agent_tools_bp = Blueprint("agent_tools", __name__)
 
+MANAGER_PHONES = ["77761200700", "77773418838"]
+
+
+def _notify_managers_wa(lead_id: int, event: str, contact_name: str = "", phone: str = "", notes: str = ""):
+    """Send WhatsApp notification to managers about a lead event."""
+    try:
+        from whatsapp_client import WhatsAppClient
+        msg = (
+            f"🔔 *{event}*\n\n"
+            f"Контакт: {contact_name or '—'}\n"
+            f"Телефон: {phone or '—'}\n"
+            f"Lead ID: {lead_id}"
+        )
+        if notes:
+            msg += f"\nЗаметки: {notes}"
+        client = WhatsAppClient()
+        for mgr_phone in MANAGER_PHONES:
+            result = client.send_text(mgr_phone, msg)
+            if result.success:
+                logger.info("Manager WA notification sent to %s for lead %d", mgr_phone, lead_id)
+            else:
+                logger.error("Manager WA notification failed to %s: %s", mgr_phone, result.error)
+    except Exception as e:
+        logger.error("WhatsApp manager notification error: %s", e)
+
 
 @agent_tools_bp.route("/test-whatsapp", methods=["POST"])
 def test_whatsapp():
@@ -250,6 +275,10 @@ def create_deal():
         metadata={"interest_level": interest_level, "notes": notes},
     )
 
+    # Notify managers via WhatsApp
+    if lead_id:
+        _notify_managers_wa(lead_id, "Лидген зафиксировал интерес", contact_name, phone, notes)
+
     return jsonify({"ok": True, "lead_id": lead_id})
 
 
@@ -317,6 +346,10 @@ def schedule_callback_route():
         channel="system",
         metadata={"callback_datetime": callback_datetime, "contact_name": contact_name},
     )
+
+    # Notify managers via WhatsApp
+    if lead_id:
+        _notify_managers_wa(lead_id, f"Запланирован звонок на {callback_datetime}", contact_name, phone)
 
     return jsonify({"ok": True, "lead_id": lead_id, "callback_datetime": callback_datetime})
 

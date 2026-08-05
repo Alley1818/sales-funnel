@@ -655,28 +655,68 @@ def _schedule_callback(lead_id: int, days: int):
 
 
 def _escalate_to_manager(lead_id: int, reason: str):
-    """Escalate lead to human manager via Telegram notification."""
+    """Escalate lead to human manager via Telegram and WhatsApp notifications."""
     conn = get_conn()
-    lead = conn.execute("SELECT * FROM leads WHERE id = ?", (lead_id,)).fetchone()
-    company = dict(lead).get("company_name", "Unknown") if lead else "Unknown"
+    lead_row = conn.execute("SELECT * FROM leads WHERE id = ?", (lead_id,)).fetchone()
+    lead = dict(lead_row) if lead_row else {}
+    company = lead.get("company_name", "—")
+    contact = lead.get("contact_name", "—")
+    phone = lead.get("mobile") or lead.get("whatsapp") or lead.get("phone", "—")
+    industry = lead.get("industry", "—")
+    status = lead.get("status", "—")
+
+    # Get last 3 messages for context
+    last_msgs = ""
+    try:
+        from agent_sync import get_lead_timeline
+        timeline = get_lead_timeline(lead_id, limit=3)
+        if timeline:
+            lines = []
+            for ev in timeline:
+                direction = "Клиент" if ev.get("direction") == "inbound" else "Агент"
+                lines.append(f"  {direction}: {ev.get('content', '')[:150]}")
+            last_msgs = "\n".join(lines)
+    except Exception:
+        pass
 
     from agent_sync import log_event, update_lead_context
     update_lead_context(lead_id, next_action="escalate_to_manager")
     log_event(lead_id, "escalate", f"Эскалация менеджеру: {reason}",
               metadata={"reason": reason, "source": "wa_agent"})
 
-    # Try Telegram notification
+    # Build notification message
+    msg = (
+        f"🔔 *Эскалация из WhatsApp*\n\n"
+        f"Компания: {company}\n"
+        f"Контакт: {contact}\n"
+        f"Телефон: {phone}\n"
+        f"Отрасль: {industry}\n"
+        f"Статус: {status}\n"
+        f"Lead ID: {lead_id}\n"
+        f"Причина: {reason}"
+    )
+    if last_msgs:
+        msg += f"\n\nПоследние сообщения:\n{last_msgs}"
+
+    # Send Telegram notification
     try:
         from telegram_notifier import _send_telegram_sync
-        msg = (
-            f"<b>🔔 Эскалация из WhatsApp</b>\n"
-            f"<b>Компания:</b> {company}\n"
-            f"<b>Lead ID:</b> {lead_id}\n"
-            f"<b>Причина:</b> {reason}"
-        )
-        _send_telegram_sync(msg)
+        _send_telegram_sync(msg.replace("*", "<b>").replace("\n", "\n"))
     except Exception as e:
         logger.error("Telegram escalation notification failed: %s", e)
+
+    # Send WhatsApp notifications to managers
+    manager_phones = ["77761200700", "77773418838"]
+    try:
+        client = WhatsAppClient()
+        for mgr_phone in manager_phones:
+            result = client.send_text(mgr_phone, msg)
+            if result.success:
+                logger.info("WA escalation sent to manager %s for lead %d", mgr_phone, lead_id)
+            else:
+                logger.error("WA escalation failed to %s: %s", mgr_phone, result.error)
+    except Exception as e:
+        logger.error("WhatsApp escalation notification failed: %s", e)
 
     logger.info("Lead %d escalated to manager: %s", lead_id, reason)
 
