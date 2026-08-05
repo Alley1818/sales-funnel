@@ -38,6 +38,8 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
   evolution-api:
     container_name: evolution_api
@@ -95,6 +97,8 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
   asterisk:
     image: ghcr.io/alley1818/sales-funnel/asterisk:latest
@@ -113,6 +117,8 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
   postgres:
     container_name: evolution_postgres
@@ -170,6 +176,26 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_INCLUDE_STOPPED=false
+      - WATCHTOWER_ROLLING_RESTART=true
+      - REPO_USER=${GITHUB_ACTOR:-alley1818}
+      - REPO_PASS=${GITHUB_TOKEN:-}
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.25"
 
 volumes:
   evolution_instances:
