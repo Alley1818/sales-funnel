@@ -5,35 +5,52 @@ import os
 import threading
 import logging
 from flask import Blueprint, request, jsonify
-from middleware import require_auth
+from middleware import require_auth, require_agent_key
 
 logger = logging.getLogger("agent_api")
 agent_bp = Blueprint("agent", __name__)
 
 
 @agent_bp.route("/api/agent/send-kp", methods=["POST"])
-@require_auth
+@require_agent_key
 def agent_send_kp():
     """Called by Technomax agent when client wants КП."""
     from app.services.kp_service import send_kp
+    from db_conn import get_conn
 
     data = request.get_json() or {}
     lead_id = data.get("lead_id")
     company_name = data.get("company_name", "")
     industry = data.get("industry", "")
+    phone = data.get("phone", "")
+
+    # If no lead_id — find or create lead by phone
+    if not lead_id and phone:
+        conn = get_conn()
+        row = conn.execute("SELECT id FROM leads WHERE whatsapp = ? OR mobile = ? LIMIT 1", (phone, phone)).fetchone()
+        if row:
+            lead_id = row["id"]
+        else:
+            cur = conn.execute(
+                "INSERT INTO leads (company_name, industry, whatsapp, status) VALUES (?, ?, ?, 'interested')",
+                (company_name or "Technomax Client", industry, phone),
+            )
+            conn.commit()
+            lead_id = cur.lastrowid
+            logger.info("Created new lead %d for phone %s", lead_id, phone)
 
     if not lead_id:
-        return jsonify({"error": "lead_id required"}), 400
+        return jsonify({"error": "lead_id or phone required"}), 400
 
     result = send_kp(lead_id, company_name, industry)
     if "error" in result:
         status = 404 if "not found" in result["error"].lower() else 400
         return jsonify(result), status
-    return jsonify({"ok": True, "results": result["results"]})
+    return jsonify({"ok": True, "lead_id": lead_id, "results": result["results"]})
 
 
 @agent_bp.route("/api/agent/log-call", methods=["POST"])
-@require_auth
+@require_agent_key
 def agent_log_call():
     """Called by Technomax agent to log conversation result."""
     from leads_db import update_lead_status

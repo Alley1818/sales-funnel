@@ -13,6 +13,7 @@ services:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - WA_WEBHOOK_SECRET=${WA_WEBHOOK_SECRET:-}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - AGENT_API_KEY=${AGENT_API_KEY:-sales_funnel_agent_key_2026}
       - OLLAMA_URL=http://ollama:11434
       - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
       - LLM_MODEL=${LLM_MODEL:-qwen2.5:1.5b}

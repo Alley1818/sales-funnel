@@ -54,7 +54,7 @@ async def list_agents(token: str) -> list:
         return []
 
 
-async def create_sales_agent(token: str, funnel_api_url: str = "http://YOUR_VPS_IP:5050") -> dict | None:
+async def create_sales_agent(token: str, funnel_api_url: str = "http://YOUR_VPS_IP:5050", agent_api_key: str = "") -> dict | None:
     """
     Create an AI agent on Technomax platform for WhatsApp sales conversations.
     The agent will:
@@ -94,11 +94,15 @@ async def create_sales_agent(token: str, funnel_api_url: str = "http://YOUR_VPS_
                         "params": {
                             "method": "POST",
                             "url": f"{funnel_api_url}/api/agent/send-kp",
-                            "headers": {"Content-Type": "application/json"},
+                            "headers": {
+                                "Content-Type": "application/json",
+                                "X-Agent-API-Key": agent_api_key,
+                            },
                             "body": {
                                 "lead_id": "{lead_id}",
                                 "company_name": "{company_name}",
                                 "industry": "{industry}",
+                                "phone": "{phone}",
                             },
                             "rawBody": False,
                             "timeout": 15,
@@ -112,7 +116,10 @@ async def create_sales_agent(token: str, funnel_api_url: str = "http://YOUR_VPS_
                         "params": {
                             "method": "POST",
                             "url": f"{funnel_api_url}/api/agent/log-call",
-                            "headers": {"Content-Type": "application/json"},
+                            "headers": {
+                                "Content-Type": "application/json",
+                                "X-Agent-API-Key": agent_api_key,
+                            },
                             "body": {
                                 "lead_id": "{lead_id}",
                                 "channel": "whatsapp",

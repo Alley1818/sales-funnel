@@ -127,6 +127,23 @@ def require_auth(f):
     return decorated
 
 
+# ==================== AGENT API KEY AUTH ====================
+
+def require_agent_key(f):
+    """Decorator: require X-Agent-API-Key header for Technomax agent callbacks."""
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        expected = os.getenv("AGENT_API_KEY", "")
+        if not expected:
+            logger.warning("AGENT_API_KEY not set — allowing agent request")
+            return f(*args, **kwargs)
+        provided = request.headers.get("X-Agent-API-Key", "")
+        if not secrets.compare_digest(provided, expected):
+            return jsonify({"error": "Invalid agent API key"}), 403
+        return f(*args, **kwargs)
+    return decorated
+
+
 # ==================== INPUT VALIDATION ====================
 
 VALID_STATUSES = {"new", "called", "interested", "callback", "sent_wa", "sent_email", "refused", "done", "lost"}
