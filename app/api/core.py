@@ -39,17 +39,17 @@ def health_db():
 
 @core_bp.route("/health/add-test-lead")
 def add_test_lead():
-    """One-shot debug: insert test lead."""
+    """One-shot debug: insert test lead with generic data."""
     try:
         conn = init_db()
         existing = conn.execute(
-            "SELECT id FROM leads WHERE mobile = ?", ("77026586714",)
+            "SELECT id FROM leads WHERE mobile = ?", ("7000000000",)
         ).fetchone()
         if existing:
             return jsonify({"ok": True, "id": existing["id"], "msg": "already exists"})
         cur = conn.execute(
             "INSERT INTO leads (company_name, industry, mobile, whatsapp, email, status) VALUES (?,?,?,?,?,?)",
-            ("Test Company", "IT", "77026586714", "77026586714", "alizeinolla@gmail.com", "new"),
+            ("Test Company", "IT", "7000000000", "7000000000", "test@example.com", "new"),
         )
         conn.commit()
         return jsonify({"ok": True, "id": cur.lastrowid, "msg": "created"})

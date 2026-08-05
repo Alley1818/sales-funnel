@@ -14,11 +14,8 @@ services:
       - WA_WEBHOOK_SECRET=${WA_WEBHOOK_SECRET:-}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
       - AGENT_API_KEY=${AGENT_API_KEY:-sales_funnel_agent_key_2026}
-      - OLLAMA_URL=http://ollama:11434
-      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
-      - LLM_MODEL=${LLM_MODEL:-qwen2.5:1.5b}
-      - CONFIG_PATH=/app/config_data/config.json
       - PIPECAT_URL=http://pipecat-agent:8082
+      - CONFIG_PATH=/app/config_data/config.json
     volumes:
       - ./leads.db:/app/leads.db
       - ./config_data:/app/config_data
@@ -158,25 +155,6 @@ services:
       timeout: 3s
       retries: 3
 
-  ollama:
-    container_name: ollama
-    image: ollama/ollama:latest
-    restart: unless-stopped
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: "2.0"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-
   watchtower:
     image: containrrr/watchtower:latest
     container_name: watchtower
@@ -202,4 +180,3 @@ volumes:
   pg_data:
   redis_data:
   asterisk_recordings:
-  ollama_data:
