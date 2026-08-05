@@ -503,3 +503,61 @@ def call_complete():
         "whatsapp_error": wa_error,
     })
 
+
+@agent_tools_bp.route("/test-chat", methods=["POST"])
+def test_chat():
+    """Sandbox test: simulate an incoming WhatsApp message through the AI agent pipeline.
+
+    POST /api/agent/test-chat
+    {"phone": "77071234567", "message": "Привет, что предлагаете?"}
+
+    Auto-creates lead if phone not found, then runs the full agent pipeline.
+    Does NOT send actual WhatsApp messages — sandbox only.
+    """
+    data = request.get_json() or {}
+    phone = data.get("phone", "").strip()
+    message = data.get("message", "").strip()
+
+    if not phone:
+        return jsonify({"ok": False, "error": "phone required"}), 400
+    if not message:
+        return jsonify({"ok": False, "error": "message required"}), 400
+
+    try:
+        from db_conn import get_conn
+        from agent_sync import log_event
+
+        conn = get_conn()
+        lead = conn.execute(
+            "SELECT id FROM leads WHERE mobile = ? OR whatsapp = ? OR phone = ?",
+            (phone, phone, phone),
+        ).fetchone()
+
+        if not lead:
+            contact_name = f"Клиент {phone[-4:]}"
+            cur = conn.execute(
+                "INSERT INTO leads (company_name, mobile, phone, status) VALUES (?, ?, ?, 'new')",
+                (contact_name, phone, phone),
+            )
+            conn.commit()
+            lead_id = cur.lastrowid
+            log_event(lead_id, "auto_created", "Лид создан при sandbox-тесте агента", channel="system")
+        else:
+            lead_id = lead["id"]
+
+        # Run the full agent pipeline (will send real WhatsApp reply)
+        from app.services.wa_agent_service import process_incoming_message
+        result = process_incoming_message(phone, message)
+
+        return jsonify({
+            "ok": True,
+            "lead_id": result.get("lead_id") or lead_id,
+            "reply": result.get("reply", ""),
+            "actions_taken": result.get("actions_taken", []),
+            "error": result.get("error"),
+        })
+
+    except Exception as e:
+        logger.exception("test-chat failed for %s", phone)
+        return jsonify({"ok": False, "lead_id": None, "reply": "", "actions_taken": [], "error": str(e)}), 500
+

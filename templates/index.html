@@ -30,6 +30,24 @@
         canvas{aspect-ratio:16/9 !important;height:auto !important}
         #panel-dashboard canvas{aspect-ratio:auto !important}
         #panel-dashboard .chart-wrap{position:relative;max-height:280px;min-height:200px}
+        /* Sandbox WhatsApp chat styles */
+        .msg-user{background:#dcf8c6;align-self:flex-end;border-radius:12px 12px 0 12px;padding:8px 14px;max-width:75%;position:relative;word-break:break-word;font-size:14px;line-height:1.4;box-shadow:0 1px 2px rgba(0,0,0,0.1)}
+        .msg-agent{background:#ffffff;align-self:flex-start;border-radius:12px 12px 12px 0;padding:8px 14px;max-width:75%;position:relative;word-break:break-word;font-size:14px;line-height:1.4;box-shadow:0 1px 2px rgba(0,0,0,0.1)}
+        .msg-system{background:hsl(var(--muted));align-self:center;border-radius:8px;padding:6px 12px;max-width:90%;font-size:12px;text-align:center;color:hsl(var(--muted-foreground))}
+        .msg-user .msg-time,.msg-agent .msg-time{font-size:10px;color:#667781;text-align:right;margin-top:2px}
+        .msg-actions-wrap{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+        .msg-action-badge{display:inline-flex;align-items:center;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,0.08)}
+        .msg-action-badge.send_kp{background:#dbeafe;color:#1e40af}
+        .msg-action-badge.escalate{background:#fee2e2;color:#dc2626}
+        .msg-action-badge.schedule_callback{background:#fef3c7;color:#d97706}
+        .msg-action-badge.update_status{background:#f3e8ff;color:#7c3aed}
+        .msg-action-badge.send_whatsapp{background:#d1fae5;color:#059669}
+        .msg-action-badge.default{background:hsl(var(--secondary));color:hsl(var(--secondary-foreground))}
+        .sandbox-typing{display:flex;gap:4px;align-items:center;padding:8px 14px;background:#fff;border-radius:12px 12px 12px 0;align-self:flex-start;box-shadow:0 1px 2px rgba(0,0,0,0.1)}
+        .sandbox-typing span{width:6px;height:6px;border-radius:50%;background:#8696a0;animation:typingBounce 1.2s infinite}
+        .sandbox-typing span:nth-child(2){animation-delay:0.2s}
+        .sandbox-typing span:nth-child(3){animation-delay:0.4s}
+        @keyframes typingBounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-4px)}}
     </style>
 </head>
 <body class="min-h-screen">
@@ -78,10 +96,8 @@
             <div class="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Продукты</div>
             <button onclick="showPanel('dashboard',this)" class="nav-btn active flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground">Dashboard</button>
             <button onclick="showPanel('agents',this)" class="nav-btn flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground">AI Агенты</button>
-            <button onclick="showPanel('campaigns',this)" class="nav-btn flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground">Быстрый обзвон</button>
+            <button onclick="showPanel('sandbox',this)" class="nav-btn flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground">Песочница агента</button>
             <button onclick="showPanel('leads',this)" class="nav-btn flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground">База лидов</button>
-            <button onclick="showPanel('templates',this)" class="nav-btn flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground">Шаблоны</button>
-            <button onclick="showPanel('newcampaign',this)" class="nav-btn flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground">Менеджер кампаний</button>
             <div class="px-3 py-2 pt-4 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Настройки</div>
             <button onclick="showPanel('settings',this)" class="nav-btn flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground">Конфигурация</button>
         </nav>
@@ -212,12 +228,13 @@
                         <div class="text-xs space-y-0.5"><div class="flex justify-between"><span class="text-muted-foreground">SIP</span><span class="font-mono">:5060</span></div><div class="flex justify-between"><span class="text-muted-foreground">ARI</span><span class="font-mono">:8089</span></div><div class="flex justify-between"><span class="text-muted-foreground">Транк</span><span id="ast-trunk">--</span></div></div>
                     </div>
                     <div class="rounded-lg border bg-card shadow-sm p-4">
-                        <h3 class="text-sm font-medium mb-2">📞 Тест звонок</h3>
-                        <div class="flex gap-2">
-                            <input id="test-call-phone" type="text" placeholder="77071234567" class="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
-                            <button onclick="testCall()" class="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground h-8 px-3 text-sm font-medium">Позвонить</button>
+                        <h3 class="text-sm font-medium mb-4">📞 Тест звонок</h3>
+                        <div class="relative mb-3">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+                            <input id="test-call-phone" type="text" placeholder="Введите номер телефона" class="w-full h-12 pl-11 pr-4 rounded-xl border bg-background shadow-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all" style="font-size:18px;">
                         </div>
-                        <p id="test-call-result" class="text-xs mt-2 text-muted-foreground"></p>
+                        <button onclick="testCall()" class="w-full h-12 rounded-xl bg-primary text-primary-foreground text-base font-semibold hover:bg-primary/90 shadow-sm transition-colors">Позвонить</button>
+                        <p id="test-call-result" class="text-xs mt-3 text-center text-muted-foreground"></p>
                     </div>
                     <div class="rounded-lg border bg-card shadow-sm p-4">
                         <h3 class="text-sm font-medium mb-2">🎙️ Тест агента (чат)</h3>
@@ -234,6 +251,48 @@
                 </div>
                 <div class="rounded-lg border bg-card shadow-sm"><div class="p-4 border-b"><h3 class="text-sm font-medium">Агенты по отраслям</h3></div><div class="p-4" id="industry-agents"><div class="skeleton h-16 w-full"></div></div></div>
                 <div class="rounded-lg border bg-card shadow-sm"><div class="p-4 border-b"><h3 class="text-sm font-medium">Статистика воронки</h3></div><div class="p-4"><div class="grid grid-cols-5 gap-4" id="stats"></div><div class="mt-3 h-1 w-full rounded-full bg-secondary overflow-hidden"><div id="prog" class="h-full rounded-full bg-primary transition-all" style="width:0"></div></div><p class="mt-1 text-[10px] text-muted-foreground" id="prog-txt">--</p></div></div>
+            </div>
+
+            <!-- ===== ПЕСОЧНИЦА АГЕНТА ===== -->
+            <div id="panel-sandbox" class="panel hidden" style="height:calc(100vh - 7rem);">
+                <div class="flex h-full gap-0 rounded-xl border bg-card shadow-sm overflow-hidden">
+                    <!-- Chat Area -->
+                    <div class="flex flex-col flex-1 min-w-0">
+                        <!-- Top Bar -->
+                        <div class="flex items-center gap-3 px-4 py-3 border-b bg-card">
+                            <div class="flex-1">
+                                <div class="relative">
+                                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+                                    <input id="sandbox-phone" type="text" placeholder="Введите номер телефона" class="w-full h-10 pl-10 pr-4 rounded-xl border bg-background text-base shadow-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all" style="font-size:16px;">
+                                </div>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <div class="text-xs text-muted-foreground">Lead ID: <span id="sandbox-lead-id" class="font-mono">--</span></div>
+                                <div class="text-xs font-medium" id="sandbox-company-name">--</div>
+                            </div>
+                        </div>
+                        <!-- Chat Messages -->
+                        <div id="sandbox-chat" class="flex-1 overflow-y-auto px-4 py-3 space-y-2" style="background:#e5ddd5;background-image:url('data:image/svg+xml,%3Csvg width=\"40\" height=\"40\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Cpath d=\"M0 0h40v40H0z\" fill=\"none\"/%3E%3Ccircle cx=\"20\" cy=\"20\" r=\"1\" fill=\"%230002\" opacity=\".3\"/%3E%3C/svg%3E');">
+                            <div class="text-center text-xs text-muted-foreground py-8">Начните диalog — введите номер и отправьте сообщение</div>
+                        </div>
+                        <!-- Message Input -->
+                        <div class="flex items-center gap-2 px-4 py-3 border-t bg-card">
+                            <input id="sandbox-msg" type="text" placeholder="Введите сообщение..." class="flex-1 h-10 px-4 rounded-xl border bg-background text-sm shadow-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all" onkeydown="if(event.key==='Enter')sendSandboxMsg()">
+                            <button onclick="sendSandboxMsg()" class="h-10 w-10 rounded-xl bg-green-600 text-white flex items-center justify-center hover:bg-green-700 shadow-sm transition-colors shrink-0">
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Actions Side Panel -->
+                    <div class="w-64 border-l bg-muted/30 overflow-y-auto shrink-0 hidden md:block">
+                        <div class="p-3 border-b">
+                            <h3 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Действия агента</h3>
+                        </div>
+                        <div id="sandbox-actions" class="p-3 space-y-2">
+                            <div class="text-xs text-muted-foreground text-center py-4">Нет действий</div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- ===== БЫСТРЫЙ ОБЗВОН ===== -->
@@ -304,7 +363,8 @@
                         <th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Телефон</th>
                         <th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Статус</th>
                         <th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground" onclick="loadLeads('score')">Оценка</th>
-                    </tr></thead><tbody id="l-table" class="[&_tr:last-child]:border-0"><tr><td colspan="6" class="p-3"><div class="skeleton h-8 w-full"></div></td></tr></tbody></table>
+                        <th class="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Действия</th>
+                    </tr></thead><tbody id="l-table" class="[&_tr:last-child]:border-0"><tr><td colspan="7" class="p-3"><div class="skeleton h-8 w-full"></div></td></tr></tbody></table>
                     <div class="flex items-center justify-between p-3 border-t">
                         <span class="text-xs text-muted-foreground" id="l-count">--</span>
                         <div class="flex gap-1" id="l-pagination"></div>
@@ -532,7 +592,7 @@ function showPanel(n,el){
     document.getElementById('panel-'+n).classList.remove('hidden');
     document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
     if(el)el.classList.add('active');
-    const t={dashboard:'Dashboard',agents:'AI Агенты',campaigns:'Быстрый обзвон',leads:'База лидов',templates:'Шаблоны',newcampaign:'Менеджер кампаний',settings:'Конфигурация'};
+    const t={dashboard:'Dashboard',agents:'AI Агенты',sandbox:'Песочница агента',campaigns:'Быстрый обзвон',leads:'База лидов',templates:'Шаблоны',newcampaign:'Менеджер кампаний',settings:'Конфигурация'};
     document.getElementById('page-title').textContent=t[n]||'';
     fillIndustrySelects();
     if(n==='dashboard')loadDashboard();
@@ -558,7 +618,7 @@ async function loadLeads(sort){
         const url=`/api/leads/list?q=${encodeURIComponent(q)}&status=${status}&industry=${industry}&score=${score}&sort=${lSort}&dir=${lSortDir}&offset=${lPage*lPerPage}&limit=${lPerPage}`;
         const d=await(await fetch(url)).json();
         const el=document.getElementById('l-table');
-        if(!d.leads||!d.leads.length){el.innerHTML='<tr><td colspan="6" class="p-3 text-center text-muted-foreground text-xs">Нет лидов</td></tr>';document.getElementById('l-count').textContent='0 записей';document.getElementById('l-pagination').innerHTML='';return}
+        if(!d.leads||!d.leads.length){el.innerHTML='<tr><td colspan="7" class="p-3 text-center text-muted-foreground text-xs">Нет лидов</td></tr>';document.getElementById('l-count').textContent='0 записей';document.getElementById('l-pagination').innerHTML='';return}
         el.innerHTML=d.leads.map(l=>{
             const sc={hot:'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',warm:'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',cold:'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'};
             const st={new:'bg-blue-100 text-blue-700',called:'bg-purple-100 text-purple-700',interested:'bg-green-100 text-green-700',sent_wa:'bg-teal-100 text-teal-700',sent_email:'bg-cyan-100 text-cyan-700',refused:'bg-red-100 text-red-700'};
@@ -569,6 +629,7 @@ async function loadLeads(sort){
                 <td class="p-3 text-xs font-mono">${l.mobile||l.phone||'--'}</td>
                 <td class="p-3"><span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${st[l.status]||'bg-secondary'}">${l.status||'--'}</span></td>
                 <td class="p-3"><span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${sc[l.score_category]||'bg-secondary'}">${l.score||0} ${l.score_category||'?'}</span></td>
+                <td class="p-3" onclick="event.stopPropagation()"><button onclick="confirmAction('Удалить лид?','${(l.company_name||'').replace(/'/g,"\\'")}',()=>deleteLead(${l.id}))" class="text-xs text-red-600 hover:underline">Удалить</button></td>
             </tr>`
         }).join('');
         document.getElementById('l-count').textContent=`${d.total} записей`;
@@ -1024,6 +1085,93 @@ async function sendKP(){
         else{resultEl.textContent='✗ Ошибка: '+(d.error||'Unknown');resultEl.className='text-xs mt-2 text-red-500'}
     }catch(e){resultEl.textContent='✗ Ошибка сети';resultEl.className='text-xs mt-2 text-red-500'}
 }
+
+// ---- SANDBOX ----
+let sandboxHistory=[];
+async function sendSandboxMsg(){
+    const phoneEl=document.getElementById('sandbox-phone');
+    const msgEl=document.getElementById('sandbox-msg');
+    const phone=phoneEl.value.trim();
+    const msg=msgEl.value.trim();
+    if(!msg){toast('Введите сообщение','warning');return}
+    if(!phone){toast('Введите номер телефона','warning');phoneEl.focus();return}
+    msgEl.value='';
+    addSandboxMsg('user',msg);
+    sandboxHistory.push({role:'user',content:msg});
+    // Show typing indicator
+    const chatEl=document.getElementById('sandbox-chat');
+    const typingDiv=document.createElement('div');
+    typingDiv.className='sandbox-typing';
+    typingDiv.id='sandbox-typing';
+    typingDiv.innerHTML='<span></span><span></span><span></span>';
+    chatEl.appendChild(typingDiv);
+    chatEl.scrollTop=chatEl.scrollHeight;
+    try{
+        const r=await fetch('/api/agent/test-chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,message:msg,history:sandboxHistory.slice(0,-1)})});
+        const d=await r.json();
+        // Remove typing indicator
+        const tp=document.getElementById('sandbox-typing');
+        if(tp)tp.remove();
+        if(d.error){addSandboxMsg('system','Ошибка: '+d.error);return}
+        addSandboxMsg('agent',d.reply||d.message||JSON.stringify(d));
+        sandboxHistory.push({role:'assistant',content:d.reply||d.message||''});
+        // Update lead info if returned
+        if(d.lead_id)document.getElementById('sandbox-lead-id').textContent=d.lead_id;
+        if(d.company_name)document.getElementById('sandbox-company-name').textContent=d.company_name;
+        // Show actions
+        if(d.actions&&d.actions.length){addSandboxActions(d.actions)}
+    }catch(e){
+        const tp=document.getElementById('sandbox-typing');
+        if(tp)tp.remove();
+        addSandboxMsg('system','Ошибка сети: '+e.message)
+    }
+}
+function addSandboxMsg(role,text){
+    const el=document.getElementById('sandbox-chat');
+    // Remove placeholder if present
+    if(sandboxHistory.length<=1){const ph=el.querySelector('.text-center');if(ph)ph.remove()}
+    const d=document.createElement('div');
+    d.className=role==='user'?'msg-user':role==='agent'?'msg-agent':'msg-system';
+    const time=new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+    if(role==='system'){
+        d.textContent=text;
+    }else{
+        d.innerHTML=text.replace(/\n/g,'<br>')+'<div class="msg-time">'+time+'</div>';
+    }
+    el.appendChild(d);
+    el.scrollTop=el.scrollHeight;
+}
+function addSandboxActions(actions){
+    const el=document.getElementById('sandbox-actions');
+    // Remove placeholder
+    if(el.querySelector('.text-center'))el.innerHTML='';
+    actions.forEach(a=>{
+        const type=typeof a==='string'?a:a.type||a.action||'unknown';
+        const detail=typeof a==='object'?a.detail||a.message||'':'';
+        const d=document.createElement('div');
+        const cls=['send_kp','escalate','schedule_callback','update_status','send_whatsapp'].includes(type)?type:'default';
+        d.className='flex items-start gap-2 p-2 rounded border bg-background text-xs';
+        const labels={send_kp:'📄 КП',escalate:'🔴 Эскалация',schedule_callback:'📞 Callback',update_status:'📝 Статус',send_whatsapp:'💬 WhatsApp'};
+        d.innerHTML='<span class="msg-action-badge '+cls+'">'+(labels[type]||type)+'</span>'+(detail?'<span class="text-muted-foreground truncate">'+detail+'</span>':'');
+        el.prepend(d);
+    });
+}
+function clearSandbox(){
+    sandboxHistory=[];
+    document.getElementById('sandbox-chat').innerHTML='<div class="text-center text-xs text-muted-foreground py-8">Начните диalog — введите номер и отправьте сообщение</div>';
+    document.getElementById('sandbox-actions').innerHTML='<div class="text-xs text-muted-foreground text-center py-4">Нет действий</div>';
+    document.getElementById('sandbox-lead-id').textContent='--';
+    document.getElementById('sandbox-company-name').textContent='--';
+}
+
+async function deleteLead(id){
+    try{
+        await fetch('/api/leads/'+id,{method:'DELETE'});
+        toast('Лид удалён','success');
+        loadLeads();
+    }catch(e){toast('Ошибка удаления','error')}
+}
+
 </script>
 </body>
 </html>
