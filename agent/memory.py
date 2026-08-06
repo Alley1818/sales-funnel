@@ -193,10 +193,15 @@ class VectorMemory:
         if industry:
             where["industry"] = industry
 
+        if len(where) > 1:
+            where = {"$and": [{k: v} for k, v in where.items()]}
+        elif not where:
+            where = None
+
         results = col.query(
             query_texts=[query],
             n_results=n_results,
-            where=where if where else None,
+            where=where,
         )
 
         docs = []
@@ -212,9 +217,10 @@ class VectorMemory:
     def get_knowledge_by_industry(self, industry: str, doc_type: str = None) -> list[dict]:
         """Get all knowledge documents for an industry."""
         col = self._get_collection("knowledge_base")
-        where = {"industry": industry}
         if doc_type:
-            where["doc_type"] = doc_type
+            where = {"$and": [{"industry": industry}, {"doc_type": doc_type}]}
+        else:
+            where = {"industry": industry}
 
         results = col.get(where=where)
 
